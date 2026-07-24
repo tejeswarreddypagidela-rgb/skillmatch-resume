@@ -574,6 +574,10 @@ body {
   box-shadow: var(--shadow), 0 12px 40px -18px var(--accent-shadow);
 }
 
+:root[data-theme="dark"] .panel {
+  box-shadow: var(--shadow), 0 0 50px -14px var(--accent-shadow);
+}
+
 .panel-tagline {
   margin: 0 0 20px;
   font-family: var(--font-display);
@@ -780,6 +784,13 @@ button:active,
   box-shadow: 0 6px 18px -5px var(--accent-shadow);
 }
 
+:root[data-theme="dark"] .primary {
+  background: linear-gradient(135deg, var(--accent) 0%, #c084fc 100%);
+  color: #14151d;
+  border-color: transparent;
+  box-shadow: 0 6px 20px -5px var(--accent-shadow), 0 0 24px -8px var(--accent-shadow);
+}
+
 .secondary {
   background: var(--neutral-bg);
   color: var(--text);
@@ -796,6 +807,12 @@ button:active,
   :root[data-theme="light"] .primary:hover {
     filter: brightness(1.08);
     box-shadow: 0 10px 26px -5px var(--accent-shadow);
+    transform: translateY(-1px);
+  }
+
+  :root[data-theme="dark"] .primary:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 10px 28px -5px var(--accent-shadow), 0 0 32px -8px var(--accent-shadow);
     transform: translateY(-1px);
   }
 
