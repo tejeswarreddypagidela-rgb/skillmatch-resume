@@ -956,7 +956,7 @@ function buildAtsBlock(ats) {
     </div>`;
 }
 
-function renderResults({ jobRole, analysis, verdict, resumeText, ats, jobDescription }) {
+function renderResults({ jobRole, analysis, verdict, resumeText, ats }) {
   const { score, matched, missing } = analysis;
   const panel = document.getElementById("resultsPanel");
 
@@ -1061,9 +1061,9 @@ function renderResults({ jobRole, analysis, verdict, resumeText, ats, jobDescrip
     </div>
 
     <div class="panel-block tailor-block">
-      <h3>Tailor My Resume with AI ✨</h3>
-      <p class="muted">Uses Claude (Anthropic's AI) to rewrite your resume for this specific job — the one feature on this page that sends data off your device. Clicking the button below sends your resume and this job description to Anthropic's API for processing. Nothing else on this page does that.</p>
-      <button id="tailorBtn" type="button" class="primary">Tailor My Resume</button>
+      <h3>Suggested Resume Edits ✏️</h3>
+      <p class="muted">Rule-based suggestions pulled from the analysis above, plus an editable draft of your resume — no AI, no network call, nothing ever leaves your browser.</p>
+      <button id="tailorBtn" type="button" class="primary">Show Suggested Edits</button>
       <div id="tailorResult"></div>
     </div>
   `;
@@ -1071,83 +1071,78 @@ function renderResults({ jobRole, analysis, verdict, resumeText, ats, jobDescrip
   const tailorBtn = document.getElementById("tailorBtn");
   if (tailorBtn) {
     tailorBtn.addEventListener("click", () => {
-      const missingSkillNames = analysis.missing.map((e) => e.skill.name);
-      runTailorResume({ jobRole, jobDescription, resumeText, missingSkills: missingSkillNames });
+      renderEditSuggestions({ analysis, ats, resumeText });
     });
   }
 }
 
-async function runTailorResume({ jobRole, jobDescription, resumeText, missingSkills }) {
-  const btn = document.getElementById("tailorBtn");
+// Turns already-computed signals (failed ATS checks + missing-skill "how to
+// show it" guidance) into a short, prioritized list of concrete edits --
+// ATS fails first since they're the most specific and actionable, then a
+// couple of missing-skill tips. Capped so it stays a quick scan, not a
+// restatement of everything already shown elsewhere on the page.
+function buildEditSuggestions(analysis, ats) {
+  const suggestions = [];
+
+  ats.categories.forEach((cat) => {
+    cat.checks.forEach((c) => {
+      if (!c.pass) suggestions.push(c.detail);
+    });
+  });
+
+  const grouped = groupByCategory(analysis.missing);
+  grouped.forEach((skills, category) => {
+    const guidance = CATEGORY_SUGGESTIONS[category] || CATEGORY_SUGGESTIONS["Tools & Productivity"];
+    const skillsList = skills.join(", ");
+    suggestions.push(guidance.show.replace(/\{skills\}/g, skillsList));
+  });
+
+  return suggestions.slice(0, 8);
+}
+
+function renderEditSuggestions({ analysis, ats, resumeText }) {
   const resultEl = document.getElementById("tailorResult");
-  btn.disabled = true;
-  btn.textContent = "Tailoring...";
-  resultEl.innerHTML = `<p class="muted">Sending your resume and this job description to Claude for rewriting — this can take 10-20 seconds...</p>`;
+  const suggestions = buildEditSuggestions(analysis, ats);
 
-  try {
-    const res = await fetch("/.netlify/functions/tailor-resume", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ resumeText, jobDescription, jobRole, missingSkills }),
-    });
+  const suggestionsHtml = suggestions.length
+    ? `<ul class="tailor-changes">${suggestions.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>`
+    : `<p class="muted">No specific rule-based suggestions found — nice work.</p>`;
 
-    if (!res.ok) {
-      let message = "Something went wrong tailoring your resume. Please try again.";
-      try {
-        const errBody = await res.json();
-        if (errBody && errBody.error) message = errBody.error;
-      } catch (e) {}
-      resultEl.innerHTML = `<p class="error-text">${escapeHtml(message)}</p>`;
-      return;
-    }
+  resultEl.innerHTML = `
+    <div class="tailor-output">
+      <h4>Things to fix</h4>
+      ${suggestionsHtml}
+      <h4>Your resume <span class="muted">— edit freely below</span></h4>
+      <p class="muted">This starts as your original text. Work through the suggestions above and edit directly below, then copy or download when you're happy with it.</p>
+      <textarea id="tailoredResumeText" class="tailor-textarea">${escapeHtml(resumeText)}</textarea>
+      <div class="tailor-actions">
+        <button type="button" class="primary" id="copyTailoredBtn">Copy</button>
+        <button type="button" class="primary" id="downloadTailoredBtn">Download .txt</button>
+      </div>
+    </div>`;
 
-    const data = await res.json();
-    const changesHtml =
-      Array.isArray(data.changes) && data.changes.length
-        ? `<ul class="tailor-changes">${data.changes.map((c) => `<li>${escapeHtml(c)}</li>`).join("")}</ul>`
-        : "";
+  const textarea = document.getElementById("tailoredResumeText");
 
-    resultEl.innerHTML = `
-      <div class="tailor-output">
-        <h4>Suggested changes</h4>
-        ${changesHtml}
-        <h4>Tailored resume <span class="muted">— edit freely below</span></h4>
-        <p class="muted">This is a draft, not a final answer — the text is fully editable. Fix anything that doesn't sound like you before copying or downloading.</p>
-        <textarea id="tailoredResumeText" class="tailor-textarea">${escapeHtml(data.tailoredResume)}</textarea>
-        <div class="tailor-actions">
-          <button type="button" class="primary" id="copyTailoredBtn">Copy</button>
-          <button type="button" class="primary" id="downloadTailoredBtn">Download .txt</button>
-        </div>
-      </div>`;
+  document.getElementById("copyTailoredBtn").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(textarea.value);
+      const copyBtn = document.getElementById("copyTailoredBtn");
+      copyBtn.textContent = "Copied!";
+      setTimeout(() => {
+        copyBtn.textContent = "Copy";
+      }, 1500);
+    } catch (e) {}
+  });
 
-    const textarea = document.getElementById("tailoredResumeText");
-
-    document.getElementById("copyTailoredBtn").addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(textarea.value);
-        const copyBtn = document.getElementById("copyTailoredBtn");
-        copyBtn.textContent = "Copied!";
-        setTimeout(() => {
-          copyBtn.textContent = "Copy";
-        }, 1500);
-      } catch (e) {}
-    });
-
-    document.getElementById("downloadTailoredBtn").addEventListener("click", () => {
-      const blob = new Blob([textarea.value], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "tailored-resume.txt";
-      a.click();
-      URL.revokeObjectURL(url);
-    });
-  } catch (err) {
-    resultEl.innerHTML = `<p class="error-text">Network error while tailoring your resume. Please try again.</p>`;
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Tailor My Resume";
-  }
+  document.getElementById("downloadTailoredBtn").addEventListener("click", () => {
+    const blob = new Blob([textarea.value], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "edited-resume.txt";
+    a.click();
+    URL.revokeObjectURL(url);
+  });
 }
 
 const ANALYSIS_STAGES = [
@@ -1206,7 +1201,7 @@ async function runAnalysis() {
       fitScore: analysis.score,
     });
 
-    renderResults({ jobRole, analysis, verdict, resumeText, ats, jobDescription });
+    renderResults({ jobRole, analysis, verdict, resumeText, ats });
   } finally {
     setFormBusy(false);
   }
