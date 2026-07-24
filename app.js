@@ -1109,19 +1109,22 @@ async function runTailorResume({ jobRole, jobDescription, resumeText, missingSki
 
     resultEl.innerHTML = `
       <div class="tailor-output">
-        <h4>What changed</h4>
+        <h4>Suggested changes</h4>
         ${changesHtml}
-        <h4>Tailored resume</h4>
-        <textarea id="tailoredResumeText" class="tailor-textarea" readonly>${escapeHtml(data.tailoredResume)}</textarea>
+        <h4>Tailored resume <span class="muted">— edit freely below</span></h4>
+        <p class="muted">This is a draft, not a final answer — the text is fully editable. Fix anything that doesn't sound like you before copying or downloading.</p>
+        <textarea id="tailoredResumeText" class="tailor-textarea">${escapeHtml(data.tailoredResume)}</textarea>
         <div class="tailor-actions">
           <button type="button" class="primary" id="copyTailoredBtn">Copy</button>
           <button type="button" class="primary" id="downloadTailoredBtn">Download .txt</button>
         </div>
       </div>`;
 
+    const textarea = document.getElementById("tailoredResumeText");
+
     document.getElementById("copyTailoredBtn").addEventListener("click", async () => {
       try {
-        await navigator.clipboard.writeText(data.tailoredResume);
+        await navigator.clipboard.writeText(textarea.value);
         const copyBtn = document.getElementById("copyTailoredBtn");
         copyBtn.textContent = "Copied!";
         setTimeout(() => {
@@ -1131,7 +1134,7 @@ async function runTailorResume({ jobRole, jobDescription, resumeText, missingSki
     });
 
     document.getElementById("downloadTailoredBtn").addEventListener("click", () => {
-      const blob = new Blob([data.tailoredResume], { type: "text/plain" });
+      const blob = new Blob([textarea.value], { type: "text/plain" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
