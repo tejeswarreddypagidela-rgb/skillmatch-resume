@@ -1000,9 +1000,19 @@ document.getElementById("themeToggle").addEventListener("click", (e) => {
 
   const transition = document.startViewTransition(() => applyTheme(next));
   transition.ready.then(() => {
-    document.documentElement.animate(
+    const clipAnimation = document.documentElement.animate(
       { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${endRadius}px at ${x}px ${y}px)`] },
       { duration: 550, easing: "ease-in-out", pseudoElement: "::view-transition-new(root)" }
     );
+    // Without this, Chromium can leave a stale sliver of the old theme
+    // painted in a corner after the clip animation finishes, until some
+    // unrelated repaint (resize, scroll) happens to clear it -- the WAAPI
+    // animation completing doesn't reliably trigger a fresh compositor
+    // frame on its own. Forcing a layout read nudges it to repaint.
+    clipAnimation.finished
+      .then(() => {
+        void document.documentElement.offsetHeight;
+      })
+      .catch(() => {});
   });
 });
