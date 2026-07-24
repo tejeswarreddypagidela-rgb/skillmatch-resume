@@ -1111,11 +1111,43 @@ button:disabled {
   background: var(--bad);
 }
 
-.ats-checklist-heading {
-  margin: 0 0 10px;
+.ats-category {
+  margin-top: 18px;
+}
+
+.ats-category-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.ats-category-head h4 {
+  margin: 0;
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 1rem;
+}
+
+.ats-category-score {
+  flex: none;
+  font-weight: 700;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.ats-category-score.tone-good {
+  color: var(--good);
+}
+
+.ats-category-score.tone-warn {
+  color: var(--warn);
+}
+
+.ats-category-score.tone-bad {
+  color: var(--bad);
 }
 
 .hardsoft-grid {

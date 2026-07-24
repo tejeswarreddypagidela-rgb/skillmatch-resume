@@ -311,64 +311,339 @@ const ATS_SECTION_PATTERNS = [
   { id: "skills", label: "Skills", re: /\b(skills|technical skills|core competencies)\b/i },
 ];
 const ATS_MIN_WORDS = 150;
+const CONTENT_MIN_WORDS = 250;
+const CONTENT_MAX_WORDS = 1200;
+const WEAK_PHRASE_RE = /\b(responsible for|duties included|duties include|worked on|helped with|in charge of|tasked with)\b/i;
+const PLACEHOLDER_RE = /\[(your name|company name|insert [a-z ]+|job title|address|phone number|email)\]|lorem ipsum|xxxxxxxx|\btodo\b:?/i;
+const UNPROFESSIONAL_EMAIL_WORDS = ["sexy", "hot", "cutie", "babe", "stud", "player", "gamer", "xxx", "420", "69", "party", "drunk", "lover", "swag", "thug"];
+const FIRST_PERSON_RE = /\b(I|my|me|myself)\b/g;
+const DOB_AGE_RE = /\b(date of birth|d\.?o\.?b\.?|born (on|in)\b|\bage\s*[:\-]?\s*\d{1,2}\b)/i;
+const MARITAL_RE = /\bmarital status\b|\b(married|divorced|widowed)\b/i;
+const SSN_RE = /\b\d{3}-\d{2}-\d{4}\b/;
+const SENIOR_TITLE_RE = /\b(senior|sr\.?|staff|principal|lead|director|head of|vp|vice president|chief)\b/i;
+const JUNIOR_TITLE_RE = /\b(junior|jr\.?|entry[\s-]level|intern(ship)?|graduate)\b/i;
+const YEARS_EXPERIENCE_RE = /(\d{1,2})\+?\s*years?\s*(of\s+)?experience/gi;
+const TAILORING_MIN_OVERLAP_PCT = 25;
+const TAILORING_STOPWORDS = new Set([
+  "about", "across", "after", "again", "against", "also", "among", "being", "below", "between", "both",
+  "during", "each", "either", "every", "further", "have", "here", "however", "into", "less", "more", "most",
+  "much", "must", "need", "only", "other", "over", "some", "still", "strong", "such", "than", "that", "their",
+  "them", "then", "there", "these", "they", "this", "those", "through", "under", "using", "very", "what",
+  "when", "where", "which", "while", "who", "whom", "whose", "will", "with", "within", "without", "would",
+  "could", "should", "shall", "might", "your", "you", "are", "was", "were", "its", "not", "can", "may", "per",
+  "etc", "role", "team", "work", "years", "experience", "ability", "skills", "including", "preferred",
+  "required", "requirements", "responsibilities", "looking", "join", "have", "from",
+]);
 
-function analyzeAts({ resumeText, fileExt, usedOcr }) {
-  const wordCount = (resumeText.match(/\S+/g) || []).length;
-  const checks = [];
+function makeCheck(id, label, pass, detail) {
+  return { id, label, pass, detail };
+}
 
+function buildContentChecks(resumeText, wordCount) {
+  const hasQuant = QUANTIFIED_ACHIEVEMENT_RE.test(resumeText);
+  const hasWeakPhrase = WEAK_PHRASE_RE.test(resumeText);
+  const tooShort = wordCount > 0 && wordCount < CONTENT_MIN_WORDS;
+  const tooLong = wordCount > CONTENT_MAX_WORDS;
+
+  return [
+    makeCheck(
+      "quantified",
+      "Quantified achievements",
+      hasQuant,
+      hasQuant
+        ? "Your resume includes measurable results (numbers, percentages, or dollar amounts) — these read as far more credible than unquantified duties."
+        : `No quantified achievements found. Wherever possible, turn responsibilities into measurable outcomes, e.g. "reduced load time by 30%" instead of "improved performance."`
+    ),
+    makeCheck(
+      "actionVerbs",
+      "Strong action verbs",
+      !hasWeakPhrase,
+      !hasWeakPhrase
+        ? "Your bullet points lead with action-oriented language rather than passive filler phrases."
+        : `Found passive phrases like "responsible for" or "duties included." Rewrite bullets to open with a strong action verb instead (e.g. "Led," "Built," "Reduced").`
+    ),
+    makeCheck(
+      "length",
+      "Appropriate content length",
+      !tooShort && !tooLong,
+      tooShort
+        ? `Only ${wordCount} words of content — this reads as thin. Most resumes land between roughly 300-800 words (about 1-2 pages).`
+        : tooLong
+        ? `${wordCount.toLocaleString()} words is quite long. Unless this is an academic or executive-level resume, tightening to 1-2 pages usually reads better to a time-pressed recruiter.`
+        : `${wordCount.toLocaleString()} words — a reasonable length for a recruiter to skim quickly.`
+    ),
+  ];
+}
+
+function buildSectionChecks(resumeText) {
+  return ATS_SECTION_PATTERNS.map((s) => {
+    const found = s.re.test(resumeText);
+    return makeCheck(
+      `section-${s.id}`,
+      `${s.label} section`,
+      found,
+      found
+        ? `Found a clear "${s.label}" section header — ATS parsers rely on this exact kind of heading to segment your resume correctly.`
+        : `No "${s.label}" section header found. Unconventional wording (e.g. "What I've Built" instead of "Experience") can cause an ATS to drop or miscategorize that content.`
+    );
+  });
+}
+
+function buildAtsEssentialChecks({ resumeText, fileExt, usedOcr, wordCount }) {
   const hasEmail = ATS_EMAIL_RE.test(resumeText);
-  checks.push({
-    id: "email",
-    label: "Contact email detected",
-    pass: hasEmail,
-    detail: hasEmail
-      ? "Found an email address in plain text."
-      : "No email address found in the extracted text. If it's inside an image, header/footer, or text box, most ATS parsers will miss it entirely.",
-  });
-
   const hasPhone = ATS_PHONE_RE.test(resumeText);
-  checks.push({
-    id: "phone",
-    label: "Phone number detected",
-    pass: hasPhone,
-    detail: hasPhone
-      ? "Found a phone number in plain text."
-      : "No phone number found in the extracted text. Double-check it isn't locked inside an image or graphic.",
-  });
-
-  const missingSections = ATS_SECTION_PATTERNS.filter((s) => !s.re.test(resumeText));
-  checks.push({
-    id: "sections",
-    label: "Standard section headers present",
-    pass: missingSections.length === 0,
-    detail:
-      missingSections.length === 0
-        ? "Found Experience, Education, and Skills section headers — ATS parsers rely on these to segment a resume correctly."
-        : `Couldn't find a clear "${missingSections.map((s) => s.label).join('", "')}" section header. ATS parsers segment resumes by these exact headers, so unconventional wording (e.g. "What I've Built" instead of "Experience") can cause that content to be dropped or miscategorized.`,
-  });
-
   const isScannedPdf = fileExt === "pdf" && usedOcr;
-  checks.push({
-    id: "format",
-    label: "ATS-friendly file format",
-    pass: !isScannedPdf,
-    detail: isScannedPdf
-      ? "This PDF had no real text layer and needed OCR just to read it here — many real ATS systems can't OCR a scanned resume at all, and will see a blank submission. A text-based PDF or .docx export is much safer."
-      : "The file has a real, extractable text layer, which is what ATS parsers need.",
+  const isTooShortForParsing = wordCount > 0 && wordCount < ATS_MIN_WORDS;
+
+  return [
+    makeCheck(
+      "email",
+      "Contact email detected",
+      hasEmail,
+      hasEmail
+        ? "Found an email address in plain text."
+        : "No email address found in the extracted text. If it's inside an image, header/footer, or text box, most ATS parsers will miss it entirely."
+    ),
+    makeCheck(
+      "phone",
+      "Phone number detected",
+      hasPhone,
+      hasPhone
+        ? "Found a phone number in plain text."
+        : "No phone number found in the extracted text. Double-check it isn't locked inside an image or graphic."
+    ),
+    makeCheck(
+      "format",
+      "ATS-friendly file format",
+      !isScannedPdf,
+      isScannedPdf
+        ? "This PDF had no real text layer and needed OCR just to read it here — many real ATS systems can't OCR a scanned resume at all, and will see a blank submission. A text-based PDF or .docx export is much safer."
+        : "The file has a real, extractable text layer, which is what ATS parsers need."
+    ),
+    makeCheck(
+      "extractable",
+      "Enough extractable content",
+      !isTooShortForParsing,
+      isTooShortForParsing
+        ? `Only ${wordCount} words were extracted. This can happen when a resume relies on multi-column layouts, tables, or text boxes that break apart during parsing.`
+        : `Extracted ${wordCount.toLocaleString()} words of text — enough for reliable ATS parsing.`
+    ),
+  ];
+}
+
+function buildHrRedFlagChecks(resumeText) {
+  const emailMatch = resumeText.match(ATS_EMAIL_RE);
+  const email = emailMatch ? emailMatch[0] : null;
+  const localPart = email ? email.split("@")[0].toLowerCase() : null;
+  const unprofessional = localPart
+    ? UNPROFESSIONAL_EMAIL_WORDS.some((w) => localPart.includes(w)) || /\d{6,}/.test(localPart)
+    : false;
+
+  const firstPersonCount = (resumeText.match(FIRST_PERSON_RE) || []).length;
+  const hasPlaceholder = PLACEHOLDER_RE.test(resumeText);
+
+  return [
+    makeCheck(
+      "professionalEmail",
+      "Professional email address",
+      !unprofessional,
+      !email
+        ? "No email was found to evaluate — see ATS Essentials."
+        : unprofessional
+        ? `The email address "${email}" may read as unprofessional to a recruiter. A simple name-based address (e.g. firstname.lastname@email.com) is the safest choice.`
+        : "Your email address reads as professional."
+    ),
+    makeCheck(
+      "firstPerson",
+      "Avoids first-person language",
+      firstPersonCount <= 3,
+      firstPersonCount <= 3
+        ? `Your resume avoids first-person pronouns ("I", "my"), which is the standard convention — bullets read as implied first-person without stating it.`
+        : `Found ${firstPersonCount} instances of "I"/"my"/"me". Convention is to drop these and start bullets directly with an action verb (e.g. "Led a team..." not "I led a team...").`
+    ),
+    makeCheck(
+      "placeholders",
+      "No leftover template placeholders",
+      !hasPlaceholder,
+      !hasPlaceholder
+        ? `No leftover template placeholder text (like "[Your Name]" or "Lorem ipsum") was found.`
+        : `Found leftover placeholder text (e.g. "[Your Name]" or "Lorem ipsum") — a clear sign a template wasn't fully filled in, which reads very poorly to a recruiter.`
+    ),
+  ];
+}
+
+function buildDiscriminationChecks(resumeText) {
+  const hasDob = DOB_AGE_RE.test(resumeText);
+  const hasMarital = MARITAL_RE.test(resumeText);
+  const hasSsn = SSN_RE.test(resumeText);
+
+  return [
+    makeCheck(
+      "age",
+      "No age or date of birth disclosed",
+      !hasDob,
+      !hasDob
+        ? "No date of birth or age was found."
+        : "Found what looks like a date of birth or age. Most modern hiring guidance recommends leaving this off — it adds legal risk for employers and has no bearing on your qualifications."
+    ),
+    makeCheck(
+      "marital",
+      "No marital/family status disclosed",
+      !hasMarital,
+      !hasMarital
+        ? "No marital or family status was found."
+        : "Found a mention of marital status. This is generally recommended to leave off a resume in most modern hiring markets."
+    ),
+    makeCheck(
+      "ssn",
+      "No sensitive ID numbers detected",
+      !hasSsn,
+      !hasSsn
+        ? "No Social Security Number or similar ID pattern was found."
+        : "Found what looks like a Social Security Number. This should never appear on a resume — remove it immediately."
+    ),
+  ];
+}
+
+function extractMaxYears(text) {
+  let max = null;
+  for (const m of text.matchAll(YEARS_EXPERIENCE_RE)) {
+    const n = parseInt(m[1], 10);
+    if (!isNaN(n) && (max === null || n > max)) max = n;
+  }
+  return max;
+}
+
+function buildSeniorityChecks({ jobDescription, resumeText }) {
+  const jdIsSenior = SENIOR_TITLE_RE.test(jobDescription);
+  const jdIsJunior = !jdIsSenior && JUNIOR_TITLE_RE.test(jobDescription);
+  const resumeIsSenior = SENIOR_TITLE_RE.test(resumeText);
+  const jdYears = extractMaxYears(jobDescription);
+  const resumeYears = extractMaxYears(resumeText);
+
+  let titlePass = true;
+  let titleDetail = `This job description didn't use clear seniority language (e.g. "Senior", "Junior") for us to compare against your resume.`;
+  if (jdIsSenior) {
+    titlePass = resumeIsSenior || (resumeYears !== null && resumeYears >= 5);
+    titleDetail = titlePass
+      ? "This reads as a senior-level posting, and your resume shows senior-level language or enough years of experience to match."
+      : `This reads as a senior-level posting (mentions "Senior"/"Lead"/similar), but we didn't find senior-level titles or 5+ years of experience mentioned in your resume — worth double-checking this is the right level, or making your seniority signals more explicit.`;
+  } else if (jdIsJunior) {
+    titleDetail = resumeIsSenior
+      ? "This reads as an entry-level/junior posting, but your resume shows senior-level language. That's not wrong, but you may want to address the level difference in your cover letter."
+      : "This reads as an entry-level/junior posting, and your resume doesn't suggest an experience mismatch.";
+  }
+
+  let yearsPass = true;
+  let yearsDetail = "This job description didn't specify a required number of years of experience.";
+  if (jdYears !== null) {
+    if (resumeYears !== null) {
+      yearsPass = resumeYears >= jdYears;
+      yearsDetail = yearsPass
+        ? `This role asks for ${jdYears}+ years of experience, and your resume mentions ${resumeYears} — that clears the bar.`
+        : `This role asks for ${jdYears}+ years of experience, but your resume mentions ${resumeYears} — worth addressing this gap directly if you're applying anyway.`;
+    } else {
+      yearsDetail = `This role asks for ${jdYears}+ years of experience. Your resume doesn't state a number explicitly, which is fine — just make sure your work history clearly spans enough time to support it.`;
+    }
+  }
+
+  return [
+    makeCheck("titleLevel", "Seniority level matches the role", titlePass, titleDetail),
+    makeCheck("yearsRequired", "Meets years-of-experience requirement", yearsPass, yearsDetail),
+  ];
+}
+
+function extractSignificantWords(text) {
+  const words = text.toLowerCase().match(/[a-z][a-z'-]{4,}/g) || [];
+  return words.filter((w) => !TAILORING_STOPWORDS.has(w));
+}
+
+function keywordOverlap(jdText, resumeText) {
+  const jdWords = new Set(extractSignificantWords(jdText));
+  if (jdWords.size === 0) return { pct: null, matched: 0, total: 0 };
+  const resumeWords = new Set(extractSignificantWords(resumeText));
+  let matched = 0;
+  jdWords.forEach((w) => {
+    if (resumeWords.has(w)) matched++;
+  });
+  return { pct: Math.round((matched / jdWords.size) * 100), matched, total: jdWords.size };
+}
+
+function buildTailoringChecks({ jobRole, jobDescription, resumeText, fitScore }) {
+  const roleTrim = (jobRole || "").trim();
+  const titleFound = roleTrim ? buildSkillRegex(roleTrim).test(resumeText) : null;
+  const overlap = keywordOverlap(jobDescription, resumeText);
+
+  return [
+    makeCheck(
+      "titleMirrored",
+      "Job title mirrored in resume",
+      titleFound !== false,
+      !roleTrim
+        ? "No job title was entered in the Job Role field, so we couldn't check whether it's mirrored in your resume."
+        : titleFound
+        ? `Your resume mentions "${roleTrim}" — mirroring the exact job title helps with keyword-matching ATS systems and shows you're targeting this specific role.`
+        : `Your resume doesn't mention "${roleTrim}" anywhere. Many ATS systems and recruiters look for the exact job title — consider adding it if it genuinely describes your background.`
+    ),
+    makeCheck(
+      "keywordOverlap",
+      "Overall keyword overlap with this job description",
+      overlap.pct === null ? true : overlap.pct >= TAILORING_MIN_OVERLAP_PCT,
+      overlap.pct === null
+        ? "Paste a job description to check keyword overlap."
+        : `Your resume shares ${overlap.pct}% of this job description's distinctive keywords (${overlap.matched}/${overlap.total}) — a broader signal than the curated skills list above.`
+    ),
+    makeCheck(
+      "requiredSkillsCoverage",
+      "Required/preferred skills coverage",
+      fitScore === null ? true : fitScore >= 60,
+      fitScore === null
+        ? "Not enough specific skills were detected in this job description to score coverage."
+        : `Your resume matches ${fitScore}% of the specific required/preferred skills this JD asks for — see the Fit Score above for the full breakdown.`
+    ),
+  ];
+}
+
+const ATS_CATEGORY_DEFS = [
+  { id: "content", label: "Content" },
+  { id: "sections", label: "Sections" },
+  { id: "atsEssentials", label: "ATS Essentials" },
+  { id: "hrRedFlags", label: "HR Red Flags" },
+  { id: "discrimination", label: "Discrimination Risk" },
+  { id: "seniority", label: "Seniority Match" },
+  { id: "tailoring", label: "Tailoring" },
+];
+
+function analyzeAts({ resumeText, fileExt, usedOcr, jobDescription, jobRole, fitScore }) {
+  const wordCount = (resumeText.match(/\S+/g) || []).length;
+  const jd = jobDescription || "";
+
+  const checksByCategory = {
+    content: buildContentChecks(resumeText, wordCount),
+    sections: buildSectionChecks(resumeText),
+    atsEssentials: buildAtsEssentialChecks({ resumeText, fileExt, usedOcr, wordCount }),
+    hrRedFlags: buildHrRedFlagChecks(resumeText),
+    discrimination: buildDiscriminationChecks(resumeText),
+    seniority: buildSeniorityChecks({ jobDescription: jd, resumeText }),
+    tailoring: buildTailoringChecks({ jobRole, jobDescription: jd, resumeText, fitScore }),
+  };
+
+  const categories = ATS_CATEGORY_DEFS.map((def) => {
+    const checks = checksByCategory[def.id];
+    const passed = checks.filter((c) => c.pass).length;
+    const score = checks.length > 0 ? Math.round((passed / checks.length) * 100) : null;
+    return { ...def, checks, passed, total: checks.length, score };
   });
 
-  const isTooShort = wordCount > 0 && wordCount < ATS_MIN_WORDS;
-  checks.push({
-    id: "length",
-    label: "Enough extractable content",
-    pass: !isTooShort,
-    detail: isTooShort
-      ? `Only ${wordCount} words of text were extracted. This can happen when a resume relies on multi-column layouts, tables, or text boxes that break apart during parsing — worth a manual double-check even though the file technically has a text layer.`
-      : `Extracted ${wordCount.toLocaleString()} words of text — a healthy amount for ATS parsing.`,
-  });
+  const scoredCategories = categories.filter((c) => c.score !== null);
+  const overallScore =
+    scoredCategories.length > 0
+      ? Math.round(scoredCategories.reduce((sum, c) => sum + c.score, 0) / scoredCategories.length)
+      : null;
+  const passed = categories.reduce((sum, c) => sum + c.passed, 0);
+  const total = categories.reduce((sum, c) => sum + c.total, 0);
 
-  const passed = checks.filter((c) => c.pass).length;
-  return { checks, passed, total: checks.length };
+  return { categories, overallScore, passed, total };
 }
 
 function getVerdict(analysis) {
@@ -607,38 +882,37 @@ function buildHardSoftBlock(hardSoft) {
 // same shape as getVerdict() for the fit score -- so ATS compatibility gets
 // equal visual and explanatory weight instead of reading as an afterthought.
 function getAtsVerdict(ats) {
-  if (ats.total === 0) {
+  if (ats.overallScore === null) {
     return { score: null, tone: "neutral", label: "Not enough information", message: "Upload a resume to check ATS compatibility." };
   }
-  const score = Math.round((ats.passed / ats.total) * 100);
-  if (score === 100) {
+  const score = ats.overallScore;
+  if (score >= 90) {
     return {
       score,
       tone: "good",
       label: "Excellent — built to pass ATS screening",
-      message: "Your resume passed every automated-parseability check we run. An Applicant Tracking System should be able to read it cleanly.",
+      message: "Your resume passed nearly every check across all categories below. An Applicant Tracking System should be able to read and rank it well.",
     };
   }
-  if (score >= 60) {
+  if (score >= 65) {
     return {
       score,
       tone: "warn",
-      label: "Good, with a few fixable risks",
-      message: "Most of your resume should parse correctly, but one or two issues below could cause an ATS to misread or drop part of your content.",
+      label: "Good, with some fixable risks",
+      message: "Most categories look solid, but a few issues below could weaken how an ATS -- or a recruiter -- reads your resume.",
     };
   }
   return {
     score,
     tone: "bad",
-    label: "High risk of ATS parsing failures",
-    message: "Several issues below could cause an Applicant Tracking System to misread your resume or drop key sections entirely — worth fixing before you apply.",
+    label: "High risk across multiple categories",
+    message: "Several categories below flag real risks that could cause an ATS to misread your resume, or give a recruiter a reason to pass.",
   };
 }
 
-function buildAtsBlock(ats) {
-  const verdict = getAtsVerdict(ats);
-
-  const checksHtml = ats.checks
+function buildAtsCategoryBlock(cat) {
+  const tone = cat.score === null ? "neutral" : statTone(cat.score);
+  const checksHtml = cat.checks
     .map(
       (c) => `
         <li class="ats-check ${c.pass ? "pass" : "fail"}">
@@ -652,9 +926,22 @@ function buildAtsBlock(ats) {
     .join("");
 
   return `
+    <div class="ats-category">
+      <div class="ats-category-head">
+        <h4>${escapeHtml(cat.label)}</h4>
+        <span class="ats-category-score tone-${tone}">${cat.score === null ? "—" : `${cat.score}%`}</span>
+      </div>
+      <ul class="ats-checklist">${checksHtml}</ul>
+    </div>`;
+}
+
+function buildAtsBlock(ats) {
+  const verdict = getAtsVerdict(ats);
+  const categoriesHtml = ats.categories.map(buildAtsCategoryBlock).join("");
+
+  return `
     <div class="panel-block">
       <h3>ATS Compatibility Score</h3>
-      <p class="muted">A separate, rule-based score for whether your resume's file and formatting could trip up an Applicant Tracking System before a human ever reads it — independent of the fit score above, which assumes your text was readable in the first place.</p>
       <div class="verdict-card tone-${verdict.tone}">
         <div class="score-row">
           ${renderScoreRing(verdict.score)}
@@ -663,10 +950,9 @@ function buildAtsBlock(ats) {
             <p>${escapeHtml(verdict.message)}</p>
           </div>
         </div>
-        <p class="score-breakdown">${ats.passed}/${ats.total} checks passed</p>
+        <p class="score-breakdown">${ats.passed}/${ats.total} checks passed across ${ats.categories.length} categories</p>
       </div>
-      <h4 class="ats-checklist-heading">Detailed breakdown</h4>
-      <ul class="ats-checklist">${checksHtml}</ul>
+      ${categoriesHtml}
     </div>`;
 }
 
@@ -827,6 +1113,9 @@ async function runAnalysis() {
       resumeText,
       fileExt: currentResumeFileExt,
       usedOcr: currentResumeUsedOcr,
+      jobDescription,
+      jobRole,
+      fitScore: analysis.score,
     });
 
     renderResults({ jobRole, analysis, verdict, resumeText, ats });
