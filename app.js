@@ -956,7 +956,7 @@ function buildAtsBlock(ats) {
     </div>`;
 }
 
-function renderResults({ jobRole, analysis, verdict, resumeText, ats }) {
+function renderResults({ jobRole, analysis, verdict, resumeText, ats, jobDescription }) {
   const { score, matched, missing } = analysis;
   const panel = document.getElementById("resultsPanel");
 
@@ -1059,7 +1059,92 @@ function renderResults({ jobRole, analysis, verdict, resumeText, ats }) {
           .join("")}
       </ul>
     </div>
+
+    <div class="panel-block tailor-block">
+      <h3>Tailor My Resume with AI ✨</h3>
+      <p class="muted">Uses Claude (Anthropic's AI) to rewrite your resume for this specific job — the one feature on this page that sends data off your device. Clicking the button below sends your resume and this job description to Anthropic's API for processing. Nothing else on this page does that.</p>
+      <button id="tailorBtn" type="button" class="primary">Tailor My Resume</button>
+      <div id="tailorResult"></div>
+    </div>
   `;
+
+  const tailorBtn = document.getElementById("tailorBtn");
+  if (tailorBtn) {
+    tailorBtn.addEventListener("click", () => {
+      const missingSkillNames = analysis.missing.map((e) => e.skill.name);
+      runTailorResume({ jobRole, jobDescription, resumeText, missingSkills: missingSkillNames });
+    });
+  }
+}
+
+async function runTailorResume({ jobRole, jobDescription, resumeText, missingSkills }) {
+  const btn = document.getElementById("tailorBtn");
+  const resultEl = document.getElementById("tailorResult");
+  btn.disabled = true;
+  btn.textContent = "Tailoring...";
+  resultEl.innerHTML = `<p class="muted">Sending your resume and this job description to Claude for rewriting — this can take 10-20 seconds...</p>`;
+
+  try {
+    const res = await fetch("/.netlify/functions/tailor-resume", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resumeText, jobDescription, jobRole, missingSkills }),
+    });
+
+    if (!res.ok) {
+      let message = "Something went wrong tailoring your resume. Please try again.";
+      try {
+        const errBody = await res.json();
+        if (errBody && errBody.error) message = errBody.error;
+      } catch (e) {}
+      resultEl.innerHTML = `<p class="error-text">${escapeHtml(message)}</p>`;
+      return;
+    }
+
+    const data = await res.json();
+    const changesHtml =
+      Array.isArray(data.changes) && data.changes.length
+        ? `<ul class="tailor-changes">${data.changes.map((c) => `<li>${escapeHtml(c)}</li>`).join("")}</ul>`
+        : "";
+
+    resultEl.innerHTML = `
+      <div class="tailor-output">
+        <h4>What changed</h4>
+        ${changesHtml}
+        <h4>Tailored resume</h4>
+        <textarea id="tailoredResumeText" class="tailor-textarea" readonly>${escapeHtml(data.tailoredResume)}</textarea>
+        <div class="tailor-actions">
+          <button type="button" class="primary" id="copyTailoredBtn">Copy</button>
+          <button type="button" class="primary" id="downloadTailoredBtn">Download .txt</button>
+        </div>
+      </div>`;
+
+    document.getElementById("copyTailoredBtn").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(data.tailoredResume);
+        const copyBtn = document.getElementById("copyTailoredBtn");
+        copyBtn.textContent = "Copied!";
+        setTimeout(() => {
+          copyBtn.textContent = "Copy";
+        }, 1500);
+      } catch (e) {}
+    });
+
+    document.getElementById("downloadTailoredBtn").addEventListener("click", () => {
+      const blob = new Blob([data.tailoredResume], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "tailored-resume.txt";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  } catch (err) {
+    resultEl.innerHTML = `<p class="error-text">Network error while tailoring your resume. Please try again.</p>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Tailor My Resume";
+  }
 }
 
 const ANALYSIS_STAGES = [
@@ -1118,7 +1203,7 @@ async function runAnalysis() {
       fitScore: analysis.score,
     });
 
-    renderResults({ jobRole, analysis, verdict, resumeText, ats });
+    renderResults({ jobRole, analysis, verdict, resumeText, ats, jobDescription });
   } finally {
     setFormBusy(false);
   }

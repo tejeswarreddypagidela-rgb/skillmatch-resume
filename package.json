@@ -1,0 +1,8 @@
+{
+  "name": "skillmatch-resume",
+  "private": true,
+  "description": "SkillMatch -- resume vs job description fit checker. Static site; the only server-side code is the Netlify Function that powers AI resume tailoring.",
+  "dependencies": {
+    "@anthropic-ai/sdk": "latest"
+  }
+}
