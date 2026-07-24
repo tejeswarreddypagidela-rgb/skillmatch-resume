@@ -546,25 +546,14 @@ function renderScoreRing(pct) {
     </div>`;
 }
 
-const HARD_SKILL_DEFINITION =
-  "Hard skills are the concrete, teachable abilities this role lists — specific languages, frameworks, tools, and platforms. They're usually the first thing an automated screen or recruiter checks for, because they're the easiest to verify objectively.";
-const SOFT_SKILL_DEFINITION =
-  "Soft skills are the interpersonal and behavioral qualities this role values — communication, teamwork, leadership, and similar traits. They're harder to prove from a resume alone, so specific, concrete examples matter more here than simply listing the trait.";
-
 function hardSoftAssessment(tone, labelLower) {
-  if (tone === "neutral") {
-    return `This job description didn't mention any ${labelLower} specific enough for us to detect.`;
-  }
-  if (tone === "good") {
-    return `Your resume shows strong, direct overlap with the ${labelLower} this role is asking for.`;
-  }
-  if (tone === "warn") {
-    return `Your resume covers a moderate share of the ${labelLower} mentioned — closing a few of the gaps below would meaningfully strengthen this match.`;
-  }
-  return `Your resume shows limited overlap with the ${labelLower} this role requires — this is a significant gap worth addressing before applying.`;
+  if (tone === "neutral") return `No ${labelLower} detected in this job description.`;
+  if (tone === "good") return `Strong coverage — most ${labelLower} this role needs are already on your resume.`;
+  if (tone === "warn") return `Partial coverage — you're missing some ${labelLower} this role asks for.`;
+  return `Weak coverage — most of the ${labelLower} this role needs aren't on your resume yet.`;
 }
 
-function buildHardSoftCard(title, definition, group) {
+function buildHardSoftCard(title, group) {
   const labelLower = title.toLowerCase();
   const tone = group.total === 0 ? "neutral" : statTone(group.pct);
   const scoreDisplay = group.total === 0 ? "—" : `${group.pct}%`;
@@ -582,7 +571,6 @@ function buildHardSoftCard(title, definition, group) {
         <h4>${escapeHtml(title)}</h4>
         <span class="hardsoft-score">${scoreDisplay}</span>
       </div>
-      <p class="hardsoft-definition">${escapeHtml(definition)}</p>
       ${group.total > 0 ? `<div class="stat-bar"><div class="stat-bar-fill tone-${tone}" style="width:${group.pct}%"></div></div>` : ""}
       <p class="hardsoft-assessment">${escapeHtml(hardSoftAssessment(tone, labelLower))}</p>
       ${
@@ -608,10 +596,9 @@ function buildHardSoftBlock(hardSoft) {
   return `
     <div class="panel-block">
       <h3>Hard Skills vs. Soft Skills</h3>
-      <p class="muted">A detailed breakdown of how your resume covers this role's technical/tool requirements versus its interpersonal ones. Hiring teams evaluate the two differently, so each needs its own fix.</p>
       <div class="hardsoft-grid">
-        ${buildHardSoftCard("Hard Skills", HARD_SKILL_DEFINITION, hard)}
-        ${buildHardSoftCard("Soft Skills", SOFT_SKILL_DEFINITION, soft)}
+        ${buildHardSoftCard("Hard Skills", hard)}
+        ${buildHardSoftCard("Soft Skills", soft)}
       </div>
     </div>`;
 }

@@ -1119,9 +1119,10 @@ button:disabled {
 }
 
 .hardsoft-grid {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 16px;
+  align-items: start;
 }
 
 .hardsoft-card {
@@ -1175,13 +1176,6 @@ button:disabled {
 
 .hardsoft-card.tone-bad .hardsoft-score {
   color: var(--bad);
-}
-
-.hardsoft-definition {
-  margin: 0 0 10px;
-  font-size: 0.87rem;
-  line-height: 1.5;
-  color: var(--muted);
 }
 
 .hardsoft-assessment {
