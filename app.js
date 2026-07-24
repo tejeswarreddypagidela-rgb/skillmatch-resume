@@ -264,7 +264,111 @@ function analyzeSkills(jdText, resumeText) {
     preferredMatched,
     lowSignal: allJdSkills.length > 0 && allJdSkills.length < LOW_SIGNAL_THRESHOLD,
     otherTerms: extractUnknownTerms(jdText, resumeText),
+    hardSoft: buildHardSoftBreakdown(matched, missing),
   };
+}
+
+// SKILLS_DB's "Soft Skills" category is the one interpersonal/behavioral
+// bucket (Teamwork, Communication, Leadership, ...); every other category is
+// a teachable, verifiable "hard" skill (a language, tool, framework,
+// methodology, certification). That split maps directly onto the standard
+// resume-writing distinction between hard and soft skills.
+function isSoftSkill(entry) {
+  return entry.skill.category === "Soft Skills";
+}
+
+function summarizeSkillGroup(matched, missing) {
+  const total = matched.length + missing.length;
+  return {
+    matched,
+    missing,
+    total,
+    pct: total > 0 ? Math.round((matched.length / total) * 100) : null,
+  };
+}
+
+function buildHardSoftBreakdown(matched, missing) {
+  return {
+    hard: summarizeSkillGroup(matched.filter((e) => !isSoftSkill(e)), missing.filter((e) => !isSoftSkill(e))),
+    soft: summarizeSkillGroup(matched.filter(isSoftSkill), missing.filter(isSoftSkill)),
+  };
+}
+
+// --- ATS (Applicant Tracking System) compatibility ------------------------
+// A high skill-match score assumes the resume's text was readable in the
+// first place. These checks catch the separate, common failure mode where
+// an ATS can't even extract/parse the resume correctly -- a scanned PDF
+// with no text layer, missing contact info, no standard section headers --
+// all things a skill-match score alone would never surface. Only checkable
+// from resumeText + how it was extracted, so this is a parseability signal,
+// not a formatting/layout audit (tables and columns can't be detected from
+// flat extracted text).
+const ATS_EMAIL_RE = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i;
+const ATS_PHONE_RE = /(\+?\d{1,3}[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/;
+const ATS_SECTION_PATTERNS = [
+  { id: "experience", label: "Experience", re: /\b(work experience|professional experience|employment history|experience)\b/i },
+  { id: "education", label: "Education", re: /\beducation\b/i },
+  { id: "skills", label: "Skills", re: /\b(skills|technical skills|core competencies)\b/i },
+];
+const ATS_MIN_WORDS = 150;
+
+function analyzeAts({ resumeText, fileExt, usedOcr }) {
+  const wordCount = (resumeText.match(/\S+/g) || []).length;
+  const checks = [];
+
+  const hasEmail = ATS_EMAIL_RE.test(resumeText);
+  checks.push({
+    id: "email",
+    label: "Contact email detected",
+    pass: hasEmail,
+    detail: hasEmail
+      ? "Found an email address in plain text."
+      : "No email address found in the extracted text. If it's inside an image, header/footer, or text box, most ATS parsers will miss it entirely.",
+  });
+
+  const hasPhone = ATS_PHONE_RE.test(resumeText);
+  checks.push({
+    id: "phone",
+    label: "Phone number detected",
+    pass: hasPhone,
+    detail: hasPhone
+      ? "Found a phone number in plain text."
+      : "No phone number found in the extracted text. Double-check it isn't locked inside an image or graphic.",
+  });
+
+  const missingSections = ATS_SECTION_PATTERNS.filter((s) => !s.re.test(resumeText));
+  checks.push({
+    id: "sections",
+    label: "Standard section headers present",
+    pass: missingSections.length === 0,
+    detail:
+      missingSections.length === 0
+        ? "Found Experience, Education, and Skills section headers — ATS parsers rely on these to segment a resume correctly."
+        : `Couldn't find a clear "${missingSections.map((s) => s.label).join('", "')}" section header. ATS parsers segment resumes by these exact headers, so unconventional wording (e.g. "What I've Built" instead of "Experience") can cause that content to be dropped or miscategorized.`,
+  });
+
+  const isScannedPdf = fileExt === "pdf" && usedOcr;
+  checks.push({
+    id: "format",
+    label: "ATS-friendly file format",
+    pass: !isScannedPdf,
+    detail: isScannedPdf
+      ? "This PDF had no real text layer and needed OCR just to read it here — many real ATS systems can't OCR a scanned resume at all, and will see a blank submission. A text-based PDF or .docx export is much safer."
+      : "The file has a real, extractable text layer, which is what ATS parsers need.",
+  });
+
+  const isTooShort = wordCount > 0 && wordCount < ATS_MIN_WORDS;
+  checks.push({
+    id: "length",
+    label: "Enough extractable content",
+    pass: !isTooShort,
+    detail: isTooShort
+      ? `Only ${wordCount} words of text were extracted. This can happen when a resume relies on multi-column layouts, tables, or text boxes that break apart during parsing — worth a manual double-check even though the file technically has a text layer.`
+      : `Extracted ${wordCount.toLocaleString()} words of text — a healthy amount for ATS parsing.`,
+  });
+
+  const passed = checks.filter((c) => c.pass).length;
+  return { checks, passed, total: checks.length };
 }
 
 function getVerdict(analysis) {
@@ -416,7 +520,84 @@ function buildGeneralTips({ analysis, verdict, resumeText, jobRole }) {
   return tips.slice(0, 5);
 }
 
-function renderResults({ jobRole, analysis, verdict, resumeText }) {
+function statTone(pct) {
+  if (pct === null) return "neutral";
+  if (pct >= 75) return "good";
+  if (pct >= 50) return "warn";
+  return "bad";
+}
+
+function buildHardSoftBlock(hardSoft) {
+  const { hard, soft } = hardSoft;
+  if (hard.total === 0 && soft.total === 0) return "";
+
+  const row = (label, group) => {
+    if (group.total === 0) {
+      return `
+        <div class="stat-row">
+          <div class="stat-row-head">
+            <span class="stat-label">${label}</span>
+            <span class="stat-value muted">Not mentioned in this JD</span>
+          </div>
+        </div>`;
+    }
+    const tone = statTone(group.pct);
+    return `
+      <div class="stat-row">
+        <div class="stat-row-head">
+          <span class="stat-label">${label}</span>
+          <span class="stat-value">${group.matched.length}/${group.total} matched · ${group.pct}%</span>
+        </div>
+        <div class="stat-bar"><div class="stat-bar-fill tone-${tone}" style="width:${group.pct}%"></div></div>
+      </div>`;
+  };
+
+  return `
+    <div class="panel-block">
+      <h3>Hard skills vs. soft skills</h3>
+      <p class="muted">How your resume covers this JD's technical/tool requirements versus its interpersonal ones — the two usually need different fixes.</p>
+      ${row("Hard skills", hard)}
+      ${row("Soft skills", soft)}
+    </div>`;
+}
+
+function atsTone(passed, total) {
+  if (total === 0) return "neutral";
+  const ratio = passed / total;
+  if (ratio === 1) return "good";
+  if (ratio >= 0.6) return "warn";
+  return "bad";
+}
+
+function buildAtsBlock(ats) {
+  const tone = atsTone(ats.passed, ats.total);
+  const toneLabel = { good: "Looks ATS-friendly", warn: "A few ATS risks to fix", bad: "Significant ATS risks" }[tone] || "";
+
+  const checksHtml = ats.checks
+    .map(
+      (c) => `
+        <li class="ats-check ${c.pass ? "pass" : "fail"}">
+          <span class="ats-check-icon" aria-hidden="true">${c.pass ? "✅" : "⚠️"}</span>
+          <div class="ats-check-body">
+            <span class="ats-check-label">${escapeHtml(c.label)}</span>
+            <p>${escapeHtml(c.detail)}</p>
+          </div>
+        </li>`
+    )
+    .join("");
+
+  return `
+    <div class="panel-block">
+      <h3>ATS compatibility</h3>
+      <p class="muted">Whether your resume's file and format could trip up an Applicant Tracking System before a human ever sees it — separate from the skill-match score above, which assumes your text was readable in the first place.</p>
+      <div class="ats-summary tone-${tone}">
+        <strong>${ats.passed}/${ats.total} checks passed</strong>${toneLabel ? ` — ${toneLabel}` : ""}
+      </div>
+      <ul class="ats-checklist">${checksHtml}</ul>
+    </div>`;
+}
+
+function renderResults({ jobRole, analysis, verdict, resumeText, ats }) {
   const { score, matched, missing } = analysis;
   const panel = document.getElementById("resultsPanel");
 
@@ -510,6 +691,9 @@ function renderResults({ jobRole, analysis, verdict, resumeText }) {
       }
     </div>
 
+    ${buildHardSoftBlock(analysis.hardSoft)}
+    ${buildAtsBlock(ats)}
+
     <div class="panel-block">
       <h3>Skills that match ✅</h3>
       <div class="chip-row">${matchedChips}</div>
@@ -578,8 +762,13 @@ async function runAnalysis() {
 
     const analysis = analyzeSkills(jobDescription, resumeText);
     const verdict = getVerdict(analysis);
+    const ats = analyzeAts({
+      resumeText,
+      fileExt: currentResumeFileExt,
+      usedOcr: currentResumeUsedOcr,
+    });
 
-    renderResults({ jobRole, analysis, verdict, resumeText });
+    renderResults({ jobRole, analysis, verdict, resumeText, ats });
   } finally {
     setFormBusy(false);
   }
@@ -633,6 +822,8 @@ function loadSample() {
   document.getElementById("jobRole").value = SAMPLE.role;
   document.getElementById("jobDescription").value = SAMPLE.jd;
   currentResumeText = SAMPLE.resume;
+  currentResumeFileExt = "txt";
+  currentResumeUsedOcr = false;
   document.getElementById("formError").hidden = true;
   document.getElementById("resumeFile").value = "";
   hideFileChip();
@@ -644,6 +835,8 @@ function clearForm() {
   document.getElementById("jobRole").value = "";
   document.getElementById("jobDescription").value = "";
   currentResumeText = "";
+  currentResumeFileExt = null;
+  currentResumeUsedOcr = false;
   document.getElementById("formError").hidden = true;
   document.getElementById("resumeFile").value = "";
   hideFileChip();
@@ -788,6 +981,8 @@ async function extractPdfTextViaOcr(file, name, myGeneration) {
 }
 
 let currentResumeText = "";
+let currentResumeFileExt = null;
+let currentResumeUsedOcr = false;
 
 function setUploadStatus(message, tone) {
   const el = document.getElementById("uploadStatus");
@@ -822,9 +1017,11 @@ async function handleResumeFile(file) {
 // upload, remove, or clear has started since this one began -- otherwise a
 // slow extraction that finishes after being superseded would silently
 // resurrect or clobber whatever the user is now looking at.
-function applyResumeResult(myGeneration, text, message, tone) {
+function applyResumeResult(myGeneration, text, message, tone, meta) {
   if (myGeneration !== uploadGeneration) return;
   currentResumeText = text;
+  currentResumeFileExt = meta ? meta.fileExt : null;
+  currentResumeUsedOcr = meta ? !!meta.usedOcr : false;
   setUploadStatus(message, tone);
 }
 
@@ -836,7 +1033,7 @@ async function processResumeFile(file, myGeneration) {
     setUploadStatus(`Reading ${name}...`, "");
     try {
       const text = (await file.text()).trim();
-      applyResumeResult(myGeneration, text, `✅ Loaded ${name} (${text.length.toLocaleString()} characters)`, "success");
+      applyResumeResult(myGeneration, text, `✅ Loaded ${name} (${text.length.toLocaleString()} characters)`, "success", { fileExt: ext, usedOcr: false });
     } catch (err) {
       applyResumeResult(myGeneration, "", `Couldn't read ${name}. Please try a different file.`, "error");
     }
@@ -863,7 +1060,8 @@ async function processResumeFile(file, myGeneration) {
         myGeneration,
         text,
         `✅ Extracted text from ${name} (${text.length.toLocaleString()} characters)`,
-        "success"
+        "success",
+        { fileExt: "pdf", usedOcr: false }
       );
       return;
     }
@@ -900,7 +1098,8 @@ async function processResumeFile(file, myGeneration) {
         myGeneration,
         ocrText,
         `✅ Extracted text from ${name} via OCR (${ocrText.length.toLocaleString()} characters). OCR isn't perfect on scanned documents — worth a quick sanity check of the results below.`,
-        "success"
+        "success",
+        { fileExt: "pdf", usedOcr: true }
       );
     } catch (err) {
       applyResumeResult(
@@ -921,7 +1120,7 @@ async function processResumeFile(file, myGeneration) {
         applyResumeResult(myGeneration, "", `⚠️ Couldn't find text in ${name}. Try a different file.`, "error");
         return;
       }
-      applyResumeResult(myGeneration, text, `✅ Extracted text from ${name} (${text.length.toLocaleString()} characters)`, "success");
+      applyResumeResult(myGeneration, text, `✅ Extracted text from ${name} (${text.length.toLocaleString()} characters)`, "success", { fileExt: "docx", usedOcr: false });
     } catch (err) {
       applyResumeResult(
         myGeneration,
@@ -950,6 +1149,8 @@ document.getElementById("resumeFile").addEventListener("change", (e) => {
 document.getElementById("removeResumeBtn").addEventListener("click", () => {
   discardInFlightUpload();
   currentResumeText = "";
+  currentResumeFileExt = null;
+  currentResumeUsedOcr = false;
   document.getElementById("resumeFile").value = "";
   hideFileChip();
   setUploadStatus("No resume uploaded yet.", "");
