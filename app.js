@@ -977,7 +977,32 @@ function applyTheme(theme) {
 
 applyTheme(document.documentElement.getAttribute("data-theme") || "light");
 
-document.getElementById("themeToggle").addEventListener("click", () => {
+document.getElementById("themeToggle").addEventListener("click", (e) => {
   const current = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
-  applyTheme(current === "dark" ? "light" : "dark");
+  const next = current === "dark" ? "light" : "dark";
+
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!document.startViewTransition || reducedMotion) {
+    applyTheme(next);
+    return;
+  }
+
+  // Circular reveal expanding from the click point, via the View
+  // Transitions API: startViewTransition snapshots old vs. new state, then
+  // we animate a clip-path on the new snapshot ourselves so it "wipes in"
+  // instead of the default cross-fade (disabled in CSS for ::view-transition).
+  const x = e.clientX;
+  const y = e.clientY;
+  const endRadius = Math.hypot(
+    Math.max(x, window.innerWidth - x),
+    Math.max(y, window.innerHeight - y)
+  );
+
+  const transition = document.startViewTransition(() => applyTheme(next));
+  transition.ready.then(() => {
+    document.documentElement.animate(
+      { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${endRadius}px at ${x}px ${y}px)`] },
+      { duration: 550, easing: "ease-in-out", pseudoElement: "::view-transition-new(root)" }
+    );
+  });
 });

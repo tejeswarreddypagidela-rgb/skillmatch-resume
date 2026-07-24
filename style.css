@@ -402,6 +402,17 @@ body {
   }
 }
 
+/* Disable the browser's default cross-fade for the theme switch -- the
+   click-triggered clip-path animation in app.js drives the reveal instead. */
+::view-transition-old(root) {
+  animation: none;
+}
+
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
 .theme-toggle {
   position: fixed;
   top: 16px;
@@ -424,6 +435,10 @@ body {
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
+.theme-toggle:active {
+  transform: scale(0.9);
+}
+
 @media (hover: hover) and (pointer: fine) {
   .theme-toggle:hover {
     filter: brightness(0.96);
@@ -433,24 +448,38 @@ body {
 }
 
 .theme-toggle svg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
   width: 20px;
   height: 20px;
+  transition: opacity 0.35s ease, transform 0.35s ease;
 }
 
 .theme-toggle .icon-sun {
-  display: none;
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(-90deg) scale(0.5);
 }
 
 .theme-toggle .icon-moon {
-  display: block;
+  opacity: 1;
+  transform: translate(-50%, -50%) rotate(0deg) scale(1);
 }
 
 :root[data-theme="dark"] .theme-toggle .icon-sun {
-  display: block;
+  opacity: 1;
+  transform: translate(-50%, -50%) rotate(0deg) scale(1);
 }
 
 :root[data-theme="dark"] .theme-toggle .icon-moon {
-  display: none;
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(90deg) scale(0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-toggle svg {
+    transition: none;
+  }
 }
 
 @media (max-width: 700px) {
