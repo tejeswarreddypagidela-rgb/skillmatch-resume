@@ -2,7 +2,7 @@
 // keeps working offline after the first visit. Bump CACHE_NAME whenever any
 // cached file changes so returning visitors pick up the update instead of
 // being stuck on a stale cache forever.
-const CACHE_NAME = "skillmatch-v3";
+const CACHE_NAME = "skillmatch-v4";
 
 const APP_SHELL = [
   "./",
@@ -15,6 +15,7 @@ const APP_SHELL = [
   "./pdf.worker.min.mjs",
   "./tesseract.min.js",
   "./tesseract-worker-embedded.js",
+  "./jspdf.umd.min.js",
   "./bg-photo.jpg",
   "./manifest.json",
   "./favicon.ico",

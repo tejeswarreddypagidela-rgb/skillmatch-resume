@@ -1038,7 +1038,7 @@ function renderResults({ jobRole, analysis, verdict, resumeText, ats }) {
       }
       <div class="report-actions">
         <button type="button" class="primary" id="copyReportBtn">📋 Copy Report</button>
-        <button type="button" class="primary" id="downloadReportBtn">⬇️ Download Report</button>
+        <button type="button" class="primary" id="downloadReportBtn">⬇️ Download PDF</button>
       </div>
     </div>
 
@@ -1091,21 +1091,25 @@ function renderResults({ jobRole, analysis, verdict, resumeText, ats }) {
     } catch (err) {}
   });
 
-  document.getElementById("downloadReportBtn").addEventListener("click", () => {
-    const blob = new Blob([buildReportText({ jobRole, analysis, verdict, ats })], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "skillmatch-report.txt";
-    a.click();
-    URL.revokeObjectURL(url);
+  document.getElementById("downloadReportBtn").addEventListener("click", (e) => {
+    const btn = e.currentTarget;
+    const original = btn.textContent;
+    try {
+      buildReportPdf({ jobRole, analysis, verdict, ats }).save("skillmatch-report.pdf");
+    } catch (err) {
+      btn.textContent = "Couldn't generate PDF";
+      setTimeout(() => {
+        btn.textContent = original;
+      }, 2000);
+    }
   });
 }
 
-// Plain-text version of the whole results panel -- built from the same
-// analysis/ats data already computed for rendering, not re-derived, so it
-// always matches exactly what's on screen.
-function buildReportText({ jobRole, analysis, verdict, ats }) {
+// Shared line-by-line content for both the clipboard report and the PDF --
+// built from the same analysis/ats data already computed for rendering, not
+// re-derived, so both exports always match exactly what's on screen. Lines
+// starting with "---" are rendered as section headers by buildReportPdf.
+function buildReportLines({ jobRole, analysis, verdict, ats }) {
   const lines = [];
   lines.push("SkillMatch Analysis Report");
   if (jobRole) lines.push(`Role: ${jobRole}`);
@@ -1139,7 +1143,67 @@ function buildReportText({ jobRole, analysis, verdict, ats }) {
   lines.push("");
   lines.push("Rule-based skill matching, not a guarantee of hiring outcome. Always use your own judgment.");
 
-  return lines.join("\n");
+  return lines;
+}
+
+function buildReportText(args) {
+  return buildReportLines(args).join("\n");
+}
+
+// Lays the same lines out as a PDF via jsPDF (vendored locally, same as the
+// other libraries here -- no CDN call, generation happens entirely in the
+// browser). "---" lines from buildReportLines become bold section headers;
+// everything else is word-wrapped to the page width with manual pagination.
+function buildReportPdf({ jobRole, analysis, verdict, ats }) {
+  const lines = buildReportLines({ jobRole, analysis, verdict, ats });
+  const doc = new window.jspdf.jsPDF({ unit: "pt", format: "a4" });
+  const marginX = 44;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const maxWidth = pageWidth - marginX * 2;
+  const lineHeight = 13;
+  let y = 50;
+
+  function ensureRoom(extra) {
+    if (y + extra > pageHeight - 40) {
+      doc.addPage();
+      y = 50;
+    }
+  }
+
+  lines.forEach((raw, i) => {
+    if (i === 0) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(15);
+      doc.text(raw, marginX, y);
+      y += 24;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9.5);
+      return;
+    }
+    if (raw === "") {
+      y += lineHeight * 0.6;
+      return;
+    }
+    if (raw.startsWith("---")) {
+      ensureRoom(lineHeight + 8);
+      y += 4;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text(raw.replace(/-{3,}/g, "").trim(), marginX, y);
+      y += lineHeight + 5;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9.5);
+      return;
+    }
+    doc.splitTextToSize(raw, maxWidth).forEach((wrapped) => {
+      ensureRoom(lineHeight);
+      doc.text(wrapped, marginX, y);
+      y += lineHeight;
+    });
+  });
+
+  return doc;
 }
 
 // Turns already-computed signals (failed ATS checks + missing-skill "how to
