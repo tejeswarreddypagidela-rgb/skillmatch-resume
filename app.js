@@ -1036,6 +1036,10 @@ function renderResults({ jobRole, analysis, verdict, resumeText, ats }) {
           ? `<p class="score-breakdown">+ ${otherTerms.matched.length + otherTerms.missing.length} other JD term${otherTerms.matched.length + otherTerms.missing.length === 1 ? "" : "s"} outside our skill dictionary — not included in this score, see below.</p>`
           : ""
       }
+      <div class="report-actions">
+        <button type="button" class="primary" id="copyReportBtn">📋 Copy Report</button>
+        <button type="button" class="primary" id="downloadReportBtn">⬇️ Download Report</button>
+      </div>
     </div>
 
     ${buildHardSoftBlock(analysis.hardSoft)}
@@ -1074,6 +1078,68 @@ function renderResults({ jobRole, analysis, verdict, resumeText, ats }) {
       renderEditSuggestions({ analysis, ats, resumeText });
     });
   }
+
+  document.getElementById("copyReportBtn").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    try {
+      await navigator.clipboard.writeText(buildReportText({ jobRole, analysis, verdict, ats }));
+      const original = btn.textContent;
+      btn.textContent = "Copied!";
+      setTimeout(() => {
+        btn.textContent = original;
+      }, 1500);
+    } catch (err) {}
+  });
+
+  document.getElementById("downloadReportBtn").addEventListener("click", () => {
+    const blob = new Blob([buildReportText({ jobRole, analysis, verdict, ats })], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "skillmatch-report.txt";
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+}
+
+// Plain-text version of the whole results panel -- built from the same
+// analysis/ats data already computed for rendering, not re-derived, so it
+// always matches exactly what's on screen.
+function buildReportText({ jobRole, analysis, verdict, ats }) {
+  const lines = [];
+  lines.push("SkillMatch Analysis Report");
+  if (jobRole) lines.push(`Role: ${jobRole}`);
+  lines.push(`Generated: ${new Date().toLocaleString()}`);
+  lines.push("");
+  lines.push(`Overall fit: ${verdict.label}${analysis.score === null ? "" : ` (${analysis.score}%)`}`);
+  if (verdict.breakdown) lines.push(verdict.breakdown);
+  lines.push("");
+
+  const otherTerms = analysis.otherTerms || { matched: [], missing: [] };
+  const matchedNames = analysis.matched.map((e) => e.skill.name).concat(otherTerms.matched);
+  lines.push("--- Skills that match ---");
+  lines.push(matchedNames.length ? matchedNames.join(", ") : "None detected.");
+  lines.push("");
+
+  const missingNames = analysis.missing.map((e) => e.skill.name);
+  lines.push("--- Skills you're missing ---");
+  lines.push(missingNames.length ? missingNames.join(", ") : "None detected.");
+  if (otherTerms.missing.length) {
+    lines.push(`Other JD terms outside our dictionary: ${otherTerms.missing.join(", ")}`);
+  }
+  lines.push("");
+
+  lines.push(`--- ATS compatibility${ats.overallScore === null ? "" : ` (overall ${ats.overallScore}%)`} ---`);
+  ats.categories.forEach((cat) => {
+    lines.push(`${cat.label}${cat.score === null ? "" : ` — ${cat.score}%`} (${cat.passed}/${cat.total} passed)`);
+    cat.checks.forEach((c) => {
+      lines.push(`  [${c.pass ? "PASS" : "FLAG"}] ${c.label}: ${c.detail}`);
+    });
+  });
+  lines.push("");
+  lines.push("Rule-based skill matching, not a guarantee of hiring outcome. Always use your own judgment.");
+
+  return lines.join("\n");
 }
 
 // Turns already-computed signals (failed ATS checks + missing-skill "how to
@@ -1257,10 +1323,12 @@ function loadSample() {
   currentResumeText = SAMPLE.resume;
   currentResumeFileExt = "txt";
   currentResumeUsedOcr = false;
+  currentResumeFileName = "";
   document.getElementById("formError").hidden = true;
   document.getElementById("resumeFile").value = "";
   hideFileChip();
   setUploadStatus(`✅ Example resume loaded (${SAMPLE.resume.length.toLocaleString()} characters)`, "success");
+  saveFormState();
 }
 
 function clearForm() {
@@ -1270,6 +1338,7 @@ function clearForm() {
   currentResumeText = "";
   currentResumeFileExt = null;
   currentResumeUsedOcr = false;
+  currentResumeFileName = "";
   document.getElementById("formError").hidden = true;
   document.getElementById("resumeFile").value = "";
   hideFileChip();
@@ -1278,6 +1347,7 @@ function clearForm() {
     <div class="empty-state">
       <p>Your analysis will appear here.</p>
     </div>`;
+  clearFormState();
 }
 
 let pdfjsReady = typeof window.pdfjsLib !== "undefined";
@@ -1416,6 +1486,64 @@ async function extractPdfTextViaOcr(file, name, myGeneration) {
 let currentResumeText = "";
 let currentResumeFileExt = null;
 let currentResumeUsedOcr = false;
+let currentResumeFileName = "";
+
+const FORM_STATE_KEY = "skillmatch-formstate";
+
+// Persists the form as-is (nothing leaves the browser -- same localStorage
+// used for the theme toggle) so a refresh or accidental tab close doesn't
+// lose a pasted JD or uploaded resume.
+function saveFormState() {
+  try {
+    localStorage.setItem(
+      FORM_STATE_KEY,
+      JSON.stringify({
+        jobRole: document.getElementById("jobRole").value,
+        jobDescription: document.getElementById("jobDescription").value,
+        resumeText: currentResumeText,
+        resumeFileExt: currentResumeFileExt,
+        resumeUsedOcr: currentResumeUsedOcr,
+        resumeFileName: currentResumeFileName,
+      })
+    );
+  } catch (e) {}
+}
+
+function clearFormState() {
+  try {
+    localStorage.removeItem(FORM_STATE_KEY);
+  } catch (e) {}
+}
+
+let saveFormStateTimer = null;
+function scheduleSaveFormState() {
+  clearTimeout(saveFormStateTimer);
+  saveFormStateTimer = setTimeout(saveFormState, 400);
+}
+
+function restoreFormState() {
+  let saved = null;
+  try {
+    const raw = localStorage.getItem(FORM_STATE_KEY);
+    if (raw) saved = JSON.parse(raw);
+  } catch (e) {}
+  if (!saved) return;
+
+  if (saved.jobRole) document.getElementById("jobRole").value = saved.jobRole;
+  if (saved.jobDescription) document.getElementById("jobDescription").value = saved.jobDescription;
+
+  if (saved.resumeText) {
+    currentResumeText = saved.resumeText;
+    currentResumeFileExt = saved.resumeFileExt || null;
+    currentResumeUsedOcr = !!saved.resumeUsedOcr;
+    currentResumeFileName = saved.resumeFileName || "your resume";
+    showFileChip(currentResumeFileName);
+    setUploadStatus(
+      `✅ Restored ${currentResumeFileName} from your last visit (${currentResumeText.length.toLocaleString()} characters)`,
+      "success"
+    );
+  }
+}
 
 function setUploadStatus(message, tone) {
   const el = document.getElementById("uploadStatus");
@@ -1431,7 +1559,8 @@ let uploadGeneration = 0;
 async function handleResumeFile(file) {
   if (!file) return;
   document.getElementById("formError").hidden = true;
-  showFileChip(file.name || "file");
+  currentResumeFileName = file.name || "file";
+  showFileChip(currentResumeFileName);
   const analyzeBtn = document.getElementById("analyzeBtn");
   analyzeBtn.disabled = true;
   const myGeneration = ++uploadGeneration;
@@ -1456,6 +1585,7 @@ function applyResumeResult(myGeneration, text, message, tone, meta) {
   currentResumeFileExt = meta ? meta.fileExt : null;
   currentResumeUsedOcr = meta ? !!meta.usedOcr : false;
   setUploadStatus(message, tone);
+  saveFormState();
 }
 
 async function processResumeFile(file, myGeneration) {
@@ -1584,19 +1714,26 @@ document.getElementById("removeResumeBtn").addEventListener("click", () => {
   currentResumeText = "";
   currentResumeFileExt = null;
   currentResumeUsedOcr = false;
+  currentResumeFileName = "";
   document.getElementById("resumeFile").value = "";
   hideFileChip();
   setUploadStatus("No resume uploaded yet.", "");
   document.getElementById("formError").hidden = true;
+  saveFormState();
 });
+
+document.getElementById("jobRole").addEventListener("input", scheduleSaveFormState);
 
 document.getElementById("jobDescription").addEventListener("input", () => {
   document.getElementById("formError").hidden = true;
+  scheduleSaveFormState();
 });
 
 document.getElementById("analyzeBtn").addEventListener("click", runAnalysis);
 document.getElementById("sampleBtn").addEventListener("click", loadSample);
 document.getElementById("clearBtn").addEventListener("click", clearForm);
+
+restoreFormState();
 
 function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
