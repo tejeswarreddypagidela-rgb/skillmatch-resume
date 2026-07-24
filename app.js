@@ -1150,58 +1150,233 @@ function buildReportText(args) {
   return buildReportLines(args).join("\n");
 }
 
-// Lays the same lines out as a PDF via jsPDF (vendored locally, same as the
-// other libraries here -- no CDN call, generation happens entirely in the
-// browser). "---" lines from buildReportLines become bold section headers;
-// everything else is word-wrapped to the page width with manual pagination.
+// Same light-theme palette as style.css's :root[data-theme="light"] tokens,
+// so the PDF reads as an extension of the on-screen report rather than a
+// generic text dump -- colored score badges, green/red skill chips, and a
+// colored pass/fail dot per ATS check instead of a wall of [PASS]/[FLAG] text.
+const PDF_COLORS = {
+  text: [20, 21, 29],
+  muted: [74, 77, 99],
+  accent: [79, 70, 229],
+  border: [227, 224, 240],
+  good: [22, 163, 74],
+  goodBg: [220, 252, 231],
+  warn: [217, 119, 6],
+  warnBg: [254, 243, 199],
+  bad: [220, 38, 38],
+  badBg: [254, 226, 226],
+};
+
+function pdfScoreTone(score) {
+  if (score === null) return "warn";
+  if (score >= 75) return "good";
+  if (score >= 50) return "warn";
+  return "bad";
+}
+
+function pdfToneColors(tone) {
+  if (tone === "good") return { fg: PDF_COLORS.good, bg: PDF_COLORS.goodBg };
+  if (tone === "warn") return { fg: PDF_COLORS.warn, bg: PDF_COLORS.warnBg };
+  return { fg: PDF_COLORS.bad, bg: PDF_COLORS.badBg };
+}
+
 function buildReportPdf({ jobRole, analysis, verdict, ats }) {
-  const lines = buildReportLines({ jobRole, analysis, verdict, ats });
   const doc = new window.jspdf.jsPDF({ unit: "pt", format: "a4" });
   const marginX = 44;
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const maxWidth = pageWidth - marginX * 2;
-  const lineHeight = 13;
+  const bottomLimit = pageHeight - 42;
   let y = 50;
 
   function ensureRoom(extra) {
-    if (y + extra > pageHeight - 40) {
+    if (y + extra > bottomLimit) {
       doc.addPage();
       y = 50;
     }
   }
 
-  lines.forEach((raw, i) => {
-    if (i === 0) {
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(15);
-      doc.text(raw, marginX, y);
-      y += 24;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9.5);
-      return;
-    }
-    if (raw === "") {
-      y += lineHeight * 0.6;
-      return;
-    }
-    if (raw.startsWith("---")) {
-      ensureRoom(lineHeight + 8);
-      y += 4;
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.text(raw.replace(/-{3,}/g, "").trim(), marginX, y);
-      y += lineHeight + 5;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9.5);
-      return;
-    }
-    doc.splitTextToSize(raw, maxWidth).forEach((wrapped) => {
+  function setColor(rgb) {
+    doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+  }
+
+  // Section title with a colored rule underneath, e.g. "SKILLS THAT MATCH".
+  function heading(text) {
+    ensureRoom(30);
+    setColor(PDF_COLORS.accent);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text(text.toUpperCase(), marginX, y);
+    y += 6;
+    doc.setDrawColor(PDF_COLORS.border[0], PDF_COLORS.border[1], PDF_COLORS.border[2]);
+    doc.setLineWidth(0.75);
+    doc.line(marginX, y, marginX + maxWidth, y);
+    y += 16;
+    setColor(PDF_COLORS.text);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+  }
+
+  function paragraph(text, { color = PDF_COLORS.text, bold = false, size = 9.5, lineHeight = 13 } = {}) {
+    setColor(color);
+    doc.setFont("helvetica", bold ? "bold" : "normal");
+    doc.setFontSize(size);
+    doc.splitTextToSize(text, maxWidth).forEach((line) => {
       ensureRoom(lineHeight);
-      doc.text(wrapped, marginX, y);
+      doc.text(line, marginX, y);
       y += lineHeight;
     });
+    setColor(PDF_COLORS.text);
+    doc.setFont("helvetica", "normal");
+  }
+
+  // Wraps a list of skill names as small colored pill shapes that flow left
+  // to right and wrap to a new line when they'd overflow the page width --
+  // far easier to scan at a glance than a comma-separated run of text.
+  function chipRow(items, tone) {
+    if (!items.length) return;
+    const { fg, bg } = pdfToneColors(tone);
+    const chipHeight = 16;
+    const paddingX = 6;
+    const gap = 5;
+    let x = marginX;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    ensureRoom(chipHeight + 4);
+    items.forEach((label) => {
+      const w = doc.getTextWidth(label) + paddingX * 2;
+      if (x + w > marginX + maxWidth) {
+        x = marginX;
+        y += chipHeight + gap;
+        ensureRoom(chipHeight + 4);
+      }
+      doc.setFillColor(bg[0], bg[1], bg[2]);
+      doc.setDrawColor(fg[0], fg[1], fg[2]);
+      doc.setLineWidth(0.6);
+      doc.roundedRect(x, y, w, chipHeight, 3, 3, "FD");
+      setColor(fg);
+      doc.text(label, x + paddingX, y + chipHeight - 5);
+      x += w + gap;
+    });
+    y += chipHeight + 12;
+    setColor(PDF_COLORS.text);
+  }
+
+  // Colored rounded badge, e.g. "80%  Good match" or "Content (2/3)".
+  function scoreBadge(label, score, tone) {
+    const { fg, bg } = pdfToneColors(tone);
+    const text = score === null ? label : `${score}%  ${label}`;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    const w = doc.getTextWidth(text) + 20;
+    ensureRoom(26);
+    doc.setFillColor(bg[0], bg[1], bg[2]);
+    doc.setDrawColor(fg[0], fg[1], fg[2]);
+    doc.setLineWidth(0.6);
+    doc.roundedRect(marginX, y, w, 20, 4, 4, "FD");
+    setColor(fg);
+    doc.text(text, marginX + 10, y + 14);
+    y += 30;
+    setColor(PDF_COLORS.text);
+    doc.setFont("helvetica", "normal");
+  }
+
+  // ---- Header ----
+  setColor(PDF_COLORS.accent);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(20);
+  doc.text("SkillMatch", marginX, y);
+  y += 16;
+  setColor(PDF_COLORS.muted);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  doc.text("Resume vs Job Fit Report", marginX, y);
+  y += 20;
+
+  doc.setFontSize(9);
+  doc.text(
+    `${jobRole ? `Role: ${jobRole}   |   ` : ""}Generated ${new Date().toLocaleString()}`,
+    marginX,
+    y
+  );
+  y += 24;
+
+  // ---- Overall fit ----
+  scoreBadge(verdict.label, analysis.score, pdfScoreTone(analysis.score));
+  paragraph(verdict.message, { size: 10 });
+  if (verdict.breakdown) paragraph(verdict.breakdown, { color: PDF_COLORS.muted, size: 8.5 });
+  y += 6;
+
+  // ---- Skills that match ----
+  heading("Skills that match");
+  const otherTerms = analysis.otherTerms || { matched: [], missing: [] };
+  const matchedNames = analysis.matched.map((e) => e.skill.name).concat(otherTerms.matched);
+  if (matchedNames.length) {
+    chipRow(matchedNames, "good");
+  } else {
+    paragraph("No overlapping skills detected.", { color: PDF_COLORS.muted });
+  }
+  y += 4;
+
+  // ---- Skills you're missing ----
+  heading("Skills you're missing");
+  if (analysis.missing.length) {
+    groupByCategory(analysis.missing).forEach((skills, category) => {
+      paragraph(category, { bold: true, size: 9 });
+      chipRow(skills, "bad");
+    });
+  } else {
+    paragraph("No missing skills detected from our dictionary -- nice work.", { color: PDF_COLORS.muted });
+  }
+  if (otherTerms.missing.length) {
+    paragraph("Other JD terms outside our dictionary", { bold: true, size: 9 });
+    chipRow(otherTerms.missing, "warn");
+  }
+  y += 4;
+
+  // ---- ATS Compatibility ----
+  heading(ats.overallScore === null ? "ATS compatibility" : `ATS compatibility -- ${ats.overallScore}% overall`);
+  ats.categories.forEach((cat) => {
+    ensureRoom(28);
+    scoreBadge(`${cat.label} (${cat.passed}/${cat.total})`, cat.score, pdfScoreTone(cat.score));
+    cat.checks.forEach((c) => {
+      ensureRoom(13);
+      const dotColor = c.pass ? PDF_COLORS.good : PDF_COLORS.bad;
+      doc.setFillColor(dotColor[0], dotColor[1], dotColor[2]);
+      doc.circle(marginX + 3, y - 3, 3, "F");
+      setColor(PDF_COLORS.text);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.text(c.label, marginX + 14, y);
+      y += 12;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      setColor(PDF_COLORS.muted);
+      doc.splitTextToSize(c.detail, maxWidth - 14).forEach((line) => {
+        ensureRoom(11);
+        doc.text(line, marginX + 14, y);
+        y += 11;
+      });
+      y += 5;
+    });
+    y += 4;
   });
+
+  // ---- Footer: disclaimer + page numbers on every page ----
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    setColor(PDF_COLORS.muted);
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7.5);
+    doc.text(
+      "Rule-based skill matching, not a guarantee of hiring outcome. Always use your own judgment.",
+      marginX,
+      pageHeight - 22
+    );
+    const pageLabel = `Page ${i} of ${totalPages}`;
+    doc.text(pageLabel, pageWidth - marginX - doc.getTextWidth(pageLabel), pageHeight - 22);
+  }
 
   return doc;
 }
