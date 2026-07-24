@@ -22,7 +22,7 @@
   --ring-track: rgba(90, 90, 135, 0.16);
   --font-display: "Fraunces Display", ui-serif, Georgia, serif;
   --bg-photo: url("bg-photo.jpg");
-  --bg-photo-overlay: rgba(248, 249, 253, 0.76);
+  --bg-photo-overlay: rgba(250, 250, 254, 0.82);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -97,7 +97,7 @@
   --ui-border-fixed: rgba(20, 21, 29, 0.16);
   --accent-shadow: rgba(79, 70, 229, 0.32);
   --ring-track: rgba(90, 90, 135, 0.16);
-  --bg-photo-overlay: rgba(248, 249, 253, 0.76);
+  --bg-photo-overlay: rgba(250, 250, 254, 0.82);
 }
 
 @font-face {
@@ -151,8 +151,8 @@ body {
   position: absolute;
   border-radius: 50%;
   background: radial-gradient(circle, var(--orb-color, var(--accent)) 0%, transparent 68%);
-  filter: blur(50px) saturate(1.25);
-  opacity: 0.58;
+  filter: blur(46px) saturate(1.4);
+  opacity: 0.7;
   animation: bg-orb-drift var(--dur, 36s) ease-in-out infinite;
   will-change: transform;
 }
@@ -221,8 +221,8 @@ body {
 }
 
 :root[data-theme="light"] .bg-orb {
-  opacity: 0.58;
-  filter: blur(50px) saturate(1.25);
+  opacity: 0.7;
+  filter: blur(46px) saturate(1.4);
 }
 
 @media (max-width: 700px) {
@@ -570,6 +570,10 @@ body {
   box-shadow: var(--shadow);
 }
 
+:root[data-theme="light"] .panel {
+  box-shadow: var(--shadow), 0 12px 40px -18px var(--accent-shadow);
+}
+
 .panel-tagline {
   margin: 0 0 20px;
   font-family: var(--font-display);
@@ -769,6 +773,13 @@ button:active,
   box-shadow: 0 4px 14px -6px rgba(0, 0, 0, 0.35);
 }
 
+:root[data-theme="light"] .primary {
+  background: linear-gradient(135deg, var(--accent) 0%, #8b5cf6 100%);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 6px 18px -5px var(--accent-shadow);
+}
+
 .secondary {
   background: var(--neutral-bg);
   color: var(--text);
@@ -779,6 +790,12 @@ button:active,
   .primary:hover {
     filter: brightness(0.97);
     box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.4);
+    transform: translateY(-1px);
+  }
+
+  :root[data-theme="light"] .primary:hover {
+    filter: brightness(1.08);
+    box-shadow: 0 10px 26px -5px var(--accent-shadow);
     transform: translateY(-1px);
   }
 
