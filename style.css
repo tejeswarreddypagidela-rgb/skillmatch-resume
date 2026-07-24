@@ -1086,33 +1086,6 @@ button:disabled {
   color: var(--muted);
 }
 
-.stat-row {
-  margin-bottom: 14px;
-}
-
-.stat-row:last-child {
-  margin-bottom: 0;
-}
-
-.stat-row-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.stat-label {
-  font-weight: 700;
-  font-size: 0.9rem;
-}
-
-.stat-value {
-  font-size: 0.85rem;
-  font-variant-numeric: tabular-nums;
-  color: var(--muted);
-}
-
 .stat-bar {
   height: 8px;
   border-radius: 999px;
@@ -1138,28 +1111,91 @@ button:disabled {
   background: var(--bad);
 }
 
-.ats-summary {
-  display: inline-block;
-  margin-bottom: 12px;
-  padding: 6px 14px;
-  border-radius: 999px;
-  font-size: 0.88rem;
+.ats-checklist-heading {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.hardsoft-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.hardsoft-card {
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid var(--ui-border);
   background: var(--neutral-bg);
 }
 
-.ats-summary.tone-good {
+.hardsoft-card.tone-good {
   background: var(--good-bg);
+}
+
+.hardsoft-card.tone-warn {
+  background: var(--warn-bg);
+}
+
+.hardsoft-card.tone-bad {
+  background: var(--bad-bg);
+}
+
+.hardsoft-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.hardsoft-head h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+.hardsoft-score {
+  flex: none;
+  font-weight: 700;
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.hardsoft-card.tone-good .hardsoft-score {
   color: var(--good);
 }
 
-.ats-summary.tone-warn {
-  background: var(--warn-bg);
+.hardsoft-card.tone-warn .hardsoft-score {
   color: var(--warn);
 }
 
-.ats-summary.tone-bad {
-  background: var(--bad-bg);
+.hardsoft-card.tone-bad .hardsoft-score {
   color: var(--bad);
+}
+
+.hardsoft-definition {
+  margin: 0 0 10px;
+  font-size: 0.87rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.hardsoft-assessment {
+  margin: 10px 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.hardsoft-chips {
+  margin-top: 10px;
+}
+
+.hardsoft-chips .suggestion-label {
+  margin-bottom: 6px;
 }
 
 .ats-checklist {

@@ -527,51 +527,129 @@ function statTone(pct) {
   return "bad";
 }
 
+// Shared ring markup so every score shown in the results panel (fit score,
+// ATS score) renders identically -- one visual language, not a one-off per
+// section.
+function renderScoreRing(pct) {
+  const ringRadius = 34;
+  const ringCircumference = 2 * Math.PI * ringRadius;
+  const clamped = pct === null ? 0 : Math.max(0, Math.min(100, pct));
+  const ringOffset = ringCircumference * (1 - clamped / 100);
+  const label = pct === null ? "—" : `${pct}%`;
+  return `
+    <div class="score-ring">
+      <svg viewBox="0 0 80 80">
+        <circle class="ring-track" cx="40" cy="40" r="${ringRadius}"></circle>
+        <circle class="ring-fill" cx="40" cy="40" r="${ringRadius}" stroke-dasharray="${ringCircumference}" stroke-dashoffset="${ringOffset}"></circle>
+      </svg>
+      <span class="score-ring-label">${label}</span>
+    </div>`;
+}
+
+const HARD_SKILL_DEFINITION =
+  "Hard skills are the concrete, teachable abilities this role lists — specific languages, frameworks, tools, and platforms. They're usually the first thing an automated screen or recruiter checks for, because they're the easiest to verify objectively.";
+const SOFT_SKILL_DEFINITION =
+  "Soft skills are the interpersonal and behavioral qualities this role values — communication, teamwork, leadership, and similar traits. They're harder to prove from a resume alone, so specific, concrete examples matter more here than simply listing the trait.";
+
+function hardSoftAssessment(tone, labelLower) {
+  if (tone === "neutral") {
+    return `This job description didn't mention any ${labelLower} specific enough for us to detect.`;
+  }
+  if (tone === "good") {
+    return `Your resume shows strong, direct overlap with the ${labelLower} this role is asking for.`;
+  }
+  if (tone === "warn") {
+    return `Your resume covers a moderate share of the ${labelLower} mentioned — closing a few of the gaps below would meaningfully strengthen this match.`;
+  }
+  return `Your resume shows limited overlap with the ${labelLower} this role requires — this is a significant gap worth addressing before applying.`;
+}
+
+function buildHardSoftCard(title, definition, group) {
+  const labelLower = title.toLowerCase();
+  const tone = group.total === 0 ? "neutral" : statTone(group.pct);
+  const scoreDisplay = group.total === 0 ? "—" : `${group.pct}%`;
+
+  const matchedChips = group.matched.length
+    ? group.matched.map((e) => chip(e.skill.name, "chip-good")).join("")
+    : `<p class="muted">None matched.</p>`;
+  const missingChips = group.missing.length
+    ? group.missing.map((e) => chip(e.skill.name, "chip-bad")).join("")
+    : `<p class="muted">None missing — full coverage.</p>`;
+
+  return `
+    <div class="hardsoft-card tone-${tone}">
+      <div class="hardsoft-head">
+        <h4>${escapeHtml(title)}</h4>
+        <span class="hardsoft-score">${scoreDisplay}</span>
+      </div>
+      <p class="hardsoft-definition">${escapeHtml(definition)}</p>
+      ${group.total > 0 ? `<div class="stat-bar"><div class="stat-bar-fill tone-${tone}" style="width:${group.pct}%"></div></div>` : ""}
+      <p class="hardsoft-assessment">${escapeHtml(hardSoftAssessment(tone, labelLower))}</p>
+      ${
+        group.total > 0
+          ? `
+        <div class="hardsoft-chips">
+          <span class="suggestion-label">Matched (${group.matched.length}/${group.total})</span>
+          <div class="chip-row">${matchedChips}</div>
+        </div>
+        <div class="hardsoft-chips">
+          <span class="suggestion-label">Missing (${group.missing.length}/${group.total})</span>
+          <div class="chip-row">${missingChips}</div>
+        </div>`
+          : ""
+      }
+    </div>`;
+}
+
 function buildHardSoftBlock(hardSoft) {
   const { hard, soft } = hardSoft;
   if (hard.total === 0 && soft.total === 0) return "";
 
-  const row = (label, group) => {
-    if (group.total === 0) {
-      return `
-        <div class="stat-row">
-          <div class="stat-row-head">
-            <span class="stat-label">${label}</span>
-            <span class="stat-value muted">Not mentioned in this JD</span>
-          </div>
-        </div>`;
-    }
-    const tone = statTone(group.pct);
-    return `
-      <div class="stat-row">
-        <div class="stat-row-head">
-          <span class="stat-label">${label}</span>
-          <span class="stat-value">${group.matched.length}/${group.total} matched · ${group.pct}%</span>
-        </div>
-        <div class="stat-bar"><div class="stat-bar-fill tone-${tone}" style="width:${group.pct}%"></div></div>
-      </div>`;
-  };
-
   return `
     <div class="panel-block">
-      <h3>Hard skills vs. soft skills</h3>
-      <p class="muted">How your resume covers this JD's technical/tool requirements versus its interpersonal ones — the two usually need different fixes.</p>
-      ${row("Hard skills", hard)}
-      ${row("Soft skills", soft)}
+      <h3>Hard Skills vs. Soft Skills</h3>
+      <p class="muted">A detailed breakdown of how your resume covers this role's technical/tool requirements versus its interpersonal ones. Hiring teams evaluate the two differently, so each needs its own fix.</p>
+      <div class="hardsoft-grid">
+        ${buildHardSoftCard("Hard Skills", HARD_SKILL_DEFINITION, hard)}
+        ${buildHardSoftCard("Soft Skills", SOFT_SKILL_DEFINITION, soft)}
+      </div>
     </div>`;
 }
 
-function atsTone(passed, total) {
-  if (total === 0) return "neutral";
-  const ratio = passed / total;
-  if (ratio === 1) return "good";
-  if (ratio >= 0.6) return "warn";
-  return "bad";
+// Turns the pass/fail checklist into a scored, explained verdict -- the
+// same shape as getVerdict() for the fit score -- so ATS compatibility gets
+// equal visual and explanatory weight instead of reading as an afterthought.
+function getAtsVerdict(ats) {
+  if (ats.total === 0) {
+    return { score: null, tone: "neutral", label: "Not enough information", message: "Upload a resume to check ATS compatibility." };
+  }
+  const score = Math.round((ats.passed / ats.total) * 100);
+  if (score === 100) {
+    return {
+      score,
+      tone: "good",
+      label: "Excellent — built to pass ATS screening",
+      message: "Your resume passed every automated-parseability check we run. An Applicant Tracking System should be able to read it cleanly.",
+    };
+  }
+  if (score >= 60) {
+    return {
+      score,
+      tone: "warn",
+      label: "Good, with a few fixable risks",
+      message: "Most of your resume should parse correctly, but one or two issues below could cause an ATS to misread or drop part of your content.",
+    };
+  }
+  return {
+    score,
+    tone: "bad",
+    label: "High risk of ATS parsing failures",
+    message: "Several issues below could cause an Applicant Tracking System to misread your resume or drop key sections entirely — worth fixing before you apply.",
+  };
 }
 
 function buildAtsBlock(ats) {
-  const tone = atsTone(ats.passed, ats.total);
-  const toneLabel = { good: "Looks ATS-friendly", warn: "A few ATS risks to fix", bad: "Significant ATS risks" }[tone] || "";
+  const verdict = getAtsVerdict(ats);
 
   const checksHtml = ats.checks
     .map(
@@ -588,11 +666,19 @@ function buildAtsBlock(ats) {
 
   return `
     <div class="panel-block">
-      <h3>ATS compatibility</h3>
-      <p class="muted">Whether your resume's file and format could trip up an Applicant Tracking System before a human ever sees it — separate from the skill-match score above, which assumes your text was readable in the first place.</p>
-      <div class="ats-summary tone-${tone}">
-        <strong>${ats.passed}/${ats.total} checks passed</strong>${toneLabel ? ` — ${toneLabel}` : ""}
+      <h3>ATS Compatibility Score</h3>
+      <p class="muted">A separate, rule-based score for whether your resume's file and formatting could trip up an Applicant Tracking System before a human ever reads it — independent of the fit score above, which assumes your text was readable in the first place.</p>
+      <div class="verdict-card tone-${verdict.tone}">
+        <div class="score-row">
+          ${renderScoreRing(verdict.score)}
+          <div class="score-text">
+            <h2>${escapeHtml(verdict.label)}</h2>
+            <p>${escapeHtml(verdict.message)}</p>
+          </div>
+        </div>
+        <p class="score-breakdown">${ats.passed}/${ats.total} checks passed</p>
       </div>
+      <h4 class="ats-checklist-heading">Detailed breakdown</h4>
       <ul class="ats-checklist">${checksHtml}</ul>
     </div>`;
 }
@@ -604,12 +690,6 @@ function renderResults({ jobRole, analysis, verdict, resumeText, ats }) {
   const roleLine = jobRole
     ? `<p class="role-line">Analysis for: <strong>${escapeHtml(jobRole)}</strong></p>`
     : "";
-
-  const scoreDisplay = score === null ? "—" : `${score}%`;
-  const ringRadius = 34;
-  const ringCircumference = 2 * Math.PI * ringRadius;
-  const ringPct = score === null ? 0 : Math.max(0, Math.min(100, score));
-  const ringOffset = ringCircumference * (1 - ringPct / 100);
 
   const otherTerms = analysis.otherTerms || { matched: [], missing: [] };
 
@@ -671,13 +751,7 @@ function renderResults({ jobRole, analysis, verdict, resumeText, ats }) {
     <div class="verdict-card tone-${verdict.tone}">
       ${roleLine}
       <div class="score-row">
-        <div class="score-ring">
-          <svg viewBox="0 0 80 80">
-            <circle class="ring-track" cx="40" cy="40" r="${ringRadius}"></circle>
-            <circle class="ring-fill" cx="40" cy="40" r="${ringRadius}" stroke-dasharray="${ringCircumference}" stroke-dashoffset="${ringOffset}"></circle>
-          </svg>
-          <span class="score-ring-label">${scoreDisplay}</span>
-        </div>
+        ${renderScoreRing(score)}
         <div class="score-text">
           <h2>${escapeHtml(verdict.label)}</h2>
           <p>${escapeHtml(verdict.message)}</p>
