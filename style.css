@@ -649,23 +649,109 @@ body {
   color: var(--muted);
 }
 
-.pricing-features {
-  list-style: none;
-  padding: 0;
-  margin: 24px 0;
-  text-align: left;
-  max-width: 380px;
-  margin-inline: auto;
+.badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  max-width: 760px;
+  margin: 0 auto 28px;
 }
 
-.pricing-features li {
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border);
+.badge-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  backdrop-filter: blur(22px) saturate(1.5);
+  border: 1px solid var(--glass-border);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.badge-card svg {
+  width: 18px;
+  height: 18px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.dash-card {
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid var(--ui-border);
+  background: var(--neutral-bg);
+}
+
+.dash-card-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel-bg);
+  color: var(--accent);
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+
+.dash-card-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.dash-card h3 {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  margin: 0 0 6px;
+}
+
+.dash-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+  font-size: 0.92rem;
+}
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin: 24px 0;
+  text-align: left;
+}
+
+.pricing-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--neutral-bg);
+  border: 1px solid var(--ui-border);
+  font-size: 0.92rem;
   color: var(--text);
 }
 
-.pricing-features li:last-child {
-  border-bottom: none;
+.pricing-item svg {
+  width: 18px;
+  height: 18px;
+  color: var(--good);
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 
 .footer-links {
