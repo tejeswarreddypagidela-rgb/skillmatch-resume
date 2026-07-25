@@ -143,7 +143,7 @@
     </header>
 
     <main class="layout layout-single">
-      <div class="page-content dash-grid">
+      <div class="contact-wrap dash-grid">
         <div class="dash-card">
           <div class="dash-card-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
@@ -167,16 +167,23 @@
         </div>
       </div>
 
-      <section class="panel page-content">
+      <section class="panel contact-wrap">
         <form id="contactForm" class="contact-form">
-          <label for="contactName">Name</label>
-          <input id="contactName" type="text" required />
+          <div class="contact-form-row">
+            <div class="contact-field">
+              <label for="contactName">Name</label>
+              <input id="contactName" type="text" required />
+            </div>
+            <div class="contact-field">
+              <label for="contactEmail">Your email</label>
+              <input id="contactEmail" type="email" required />
+            </div>
+          </div>
 
-          <label for="contactEmail">Your email</label>
-          <input id="contactEmail" type="email" required />
-
-          <label for="contactMessage">Message</label>
-          <textarea id="contactMessage" required></textarea>
+          <div class="contact-field">
+            <label for="contactMessage">Message</label>
+            <textarea id="contactMessage" required></textarea>
+          </div>
 
           <div class="actions">
             <button type="submit" class="primary">Send</button>
