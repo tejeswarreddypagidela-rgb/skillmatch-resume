@@ -392,7 +392,6 @@ function buildSectionChecks(resumeText) {
 function buildAtsEssentialChecks({ resumeText, fileExt, usedOcr, wordCount }) {
   const hasEmail = ATS_EMAIL_RE.test(resumeText);
   const hasPhone = ATS_PHONE_RE.test(resumeText);
-  const isScannedPdf = fileExt === "pdf" && usedOcr;
   const isTooShortForParsing = wordCount > 0 && wordCount < ATS_MIN_WORDS;
 
   return [
@@ -415,9 +414,9 @@ function buildAtsEssentialChecks({ resumeText, fileExt, usedOcr, wordCount }) {
     makeCheck(
       "format",
       "ATS-friendly file format",
-      !isScannedPdf,
-      isScannedPdf
-        ? "This PDF had no real text layer and needed OCR just to read it here — many real ATS systems can't OCR a scanned resume at all, and will see a blank submission. A text-based PDF or .docx export is much safer."
+      !usedOcr,
+      usedOcr
+        ? `This ${fileExt === "pdf" ? "PDF had no real text layer and" : "was a photo/screenshot, so it"} needed OCR just to read it here — many real ATS systems can't OCR a submission like this at all, and will see a blank resume. A text-based PDF or .docx export is much safer.`
         : "The file has a real, extractable text layer, which is what ATS parsers need."
     ),
     makeCheck(
@@ -2053,10 +2052,54 @@ async function processResumeFile(file, myGeneration) {
     return;
   }
 
+  if (ext === "jpg" || ext === "jpeg" || ext === "png") {
+    // Same file:// restriction as the PDF-OCR path -- OCR's worker relies on
+    // Blob URLs, which don't work under the null origin a double-clicked
+    // page runs in.
+    if (location.protocol === "file:") {
+      applyResumeResult(
+        myGeneration,
+        "",
+        `⚠️ OCR isn't available when running this file locally (double-clicked) — try the online version, or paste the resume text into a .txt file instead.`,
+        "error"
+      );
+      return;
+    }
+
+    setUploadStatus(`Running OCR on ${name}...`, "");
+    try {
+      const ocrText = await ocrImageSource(file, `Running OCR on ${name}...`, myGeneration);
+      if (!ocrText) {
+        applyResumeResult(
+          myGeneration,
+          "",
+          `⚠️ Couldn't find any readable text in ${name}. Try a clearer photo/screenshot, or a different file.`,
+          "error"
+        );
+        return;
+      }
+      applyResumeResult(
+        myGeneration,
+        ocrText,
+        `✅ Extracted text from ${name} via OCR (${ocrText.length.toLocaleString()} characters). OCR isn't perfect on photos/screenshots — worth a quick sanity check of the results below.`,
+        "success",
+        { fileExt: ext, usedOcr: true }
+      );
+    } catch (err) {
+      applyResumeResult(
+        myGeneration,
+        "",
+        `⚠️ Couldn't run OCR on ${name}. Try a clearer photo/screenshot, or paste the resume text into a .txt file instead.`,
+        "error"
+      );
+    }
+    return;
+  }
+
   applyResumeResult(
     myGeneration,
     "",
-    `⚠️ "${name}" isn't a format we can read text from. Try a .pdf, .docx, .txt, or .md file.`,
+    `⚠️ "${name}" isn't a format we can read text from. Try a .pdf, .docx, .txt, .md, .jpg, or .png file.`,
     "error"
   );
 }
