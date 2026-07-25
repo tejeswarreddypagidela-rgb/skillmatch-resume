@@ -175,7 +175,6 @@
         </section>
       </div>
 
-      <section class="panel results-panel" id="resultsPanel" hidden></section>
     </main>
 
     <footer>
@@ -189,6 +188,23 @@
       <p>Rule-based skill matching, not a guarantee of hiring outcome. Always use your own judgment.</p>
       <p>&copy; 2026 SkillMatch</p>
     </footer>
+  </div>
+
+  <div id="analyzingOverlay" class="analyzing-overlay" hidden>
+    <div class="analyzing-modal">
+      <div class="analyzing-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/>
+          <path d="M14 2v6h6"/>
+          <path d="M8 13h8M8 17h5M8 9h2"/>
+        </svg>
+      </div>
+      <h3 id="analyzingHeadline">Taking a closer look at your resume...</h3>
+      <div class="analyzing-progress">
+        <div class="analyzing-progress-fill" id="analyzingProgressFill"></div>
+      </div>
+      <p class="analyzing-subtext">This usually takes a few seconds.</p>
+    </div>
   </div>
 
   <script src="skills-db.js"></script>

@@ -1619,29 +1619,29 @@ function renderEditSuggestions({ analysis, ats, resumeText, jobRole }) {
 }
 
 const ANALYSIS_STAGES = [
-  "Reading job description...",
-  "Analyzing required and preferred skills...",
-  "Analyzing your resume...",
-  "Analyzing skill matches and gaps...",
-  "Analyzing ATS compatibility...",
+  "Taking a closer look at your resume...",
+  "Reading through the job description...",
+  "Comparing your skills against what's required...",
+  "Checking for gaps and strong matches...",
+  "Reviewing ATS compatibility...",
   "Calculating your fit score...",
-  "Preparing your report...",
+  "Putting together your report...",
 ];
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function renderLoading(stageText) {
-  const panel = document.getElementById("resultsPanel");
-  const layout = document.querySelector("main.layout");
-  panel.hidden = false;
-  if (layout) layout.classList.remove("layout-single");
-  panel.innerHTML = `
-    <div class="loading-state">
-      <div class="spinner" aria-hidden="true"></div>
-      <p>${escapeHtml(stageText)}</p>
-    </div>`;
+function renderLoading(stageText, progressPct) {
+  const overlay = document.getElementById("analyzingOverlay");
+  overlay.hidden = false;
+  document.getElementById("analyzingHeadline").textContent = stageText;
+  document.getElementById("analyzingProgressFill").style.width = `${progressPct}%`;
+}
+
+function hideAnalyzingOverlay() {
+  const overlay = document.getElementById("analyzingOverlay");
+  if (overlay) overlay.hidden = true;
 }
 
 function setFormBusy(busy) {
@@ -1671,8 +1671,8 @@ async function runAnalysis() {
 
   setFormBusy(true);
   try {
-    for (const stage of ANALYSIS_STAGES) {
-      renderLoading(stage);
+    for (let i = 0; i < ANALYSIS_STAGES.length; i++) {
+      renderLoading(ANALYSIS_STAGES[i], Math.round(((i + 1) / ANALYSIS_STAGES.length) * 100));
       await sleep(650);
     }
 
@@ -1691,6 +1691,7 @@ async function runAnalysis() {
     window.location.href = "results.html";
   } finally {
     setFormBusy(false);
+    hideAnalyzingOverlay();
   }
 }
 
@@ -1763,11 +1764,6 @@ function clearForm() {
   document.getElementById("resumeFile").value = "";
   hideFileChip();
   setUploadStatus("No resume uploaded yet.", "");
-  const panel = document.getElementById("resultsPanel");
-  const layout = document.querySelector("main.layout");
-  panel.hidden = true;
-  panel.innerHTML = "";
-  if (layout) layout.classList.add("layout-single");
 }
 
 let pdfjsReady = typeof window.pdfjsLib !== "undefined";
