@@ -959,6 +959,7 @@ function buildAtsBlock(ats) {
 function renderResults({ jobRole, analysis, verdict, resumeText, ats }) {
   const { score, matched, missing } = analysis;
   const panel = document.getElementById("resultsPanel");
+  const needsTailoring = verdict.tone === "bad" || verdict.tone === "warn";
 
   const roleLine = jobRole
     ? `<p class="role-line">Analysis for: <strong>${escapeHtml(jobRole)}</strong></p>`
@@ -1065,18 +1066,27 @@ function renderResults({ jobRole, analysis, verdict, resumeText, ats }) {
     </div>
 
     <div class="panel-block tailor-block">
-      <h3>Suggested Resume Edits ✏️</h3>
-      <p class="muted">Rule-based suggestions pulled from the analysis above, plus an editable draft of your resume — no AI, no network call, nothing ever leaves your browser.</p>
-      <button id="tailorBtn" type="button" class="primary">Show Suggested Edits</button>
+      ${
+        needsTailoring
+          ? `<h3>🎯 Get a Tailored Resume to Download</h3>
+             <p class="muted">This resume isn't a strong enough match to apply as-is yet. Below is a draft that adds the skills this JD is looking for — edit it, then download as PDF or .txt. Rule-based, no AI, nothing ever leaves your browser.</p>`
+          : `<h3>Suggested Resume Edits ✏️</h3>
+             <p class="muted">Rule-based suggestions pulled from the analysis above, plus an editable draft of your resume — no AI, no network call, nothing ever leaves your browser.</p>
+             <button id="tailorBtn" type="button" class="primary">Show Suggested Edits</button>`
+      }
       <div id="tailorResult"></div>
     </div>
   `;
 
-  const tailorBtn = document.getElementById("tailorBtn");
-  if (tailorBtn) {
-    tailorBtn.addEventListener("click", () => {
-      renderEditSuggestions({ analysis, ats, resumeText });
-    });
+  if (needsTailoring) {
+    renderEditSuggestions({ analysis, ats, resumeText, jobRole });
+  } else {
+    const tailorBtn = document.getElementById("tailorBtn");
+    if (tailorBtn) {
+      tailorBtn.addEventListener("click", () => {
+        renderEditSuggestions({ analysis, ats, resumeText, jobRole });
+      });
+    }
   }
 
   document.getElementById("copyReportBtn").addEventListener("click", async (e) => {
@@ -1381,6 +1391,115 @@ function buildReportPdf({ jobRole, analysis, verdict, ats }) {
   return doc;
 }
 
+// Builds a downloadable "tailored" draft: the user's original resume text,
+// unmodified, plus a clearly-labeled appendix listing the skills this JD
+// asks for that our analysis didn't find in the resume -- grouped by
+// category so it reads like a real "Skills" section addition, not a data
+// dump. We never invent experience or silently insert claimed skills into
+// the resume body itself; the appendix is explicit and tells the user to
+// only add what they actually have.
+function buildTailoredResumeText({ resumeText, jobRole, analysis }) {
+  const missing = analysis.missing || [];
+  const otherTerms = (analysis.otherTerms && analysis.otherTerms.missing) || [];
+  if (!missing.length && !otherTerms.length) return resumeText.trim();
+
+  const lines = ["", "", "-".repeat(60), `SKILLS TO ADD${jobRole ? ` -- tailored for: ${jobRole}` : ""}`, "-".repeat(60)];
+  lines.push(
+    "Only add skills you genuinely have -- these are gaps this job description",
+    "is looking for that weren't detected in your resume above.",
+    ""
+  );
+
+  groupByCategory(missing).forEach((skills, category) => {
+    lines.push(`${category}: ${skills.join(", ")}`);
+  });
+
+  if (otherTerms.length) {
+    lines.push(`Other terms from this JD: ${otherTerms.join(", ")}`);
+  }
+
+  return `${resumeText.trim()}\n${lines.join("\n")}`;
+}
+
+// Renders whatever text is currently in the tailored-draft textarea as a PDF
+// -- WYSIWYG with the on-screen editable draft (including any edits the user
+// made), rather than re-deriving content from the analysis a second time.
+function buildTailoredResumePdf({ text, jobRole }) {
+  const doc = new window.jspdf.jsPDF({ unit: "pt", format: "a4" });
+  const marginX = 44;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const maxWidth = pageWidth - marginX * 2;
+  const bottomLimit = pageHeight - 42;
+  let y = 50;
+
+  function ensureRoom(extra) {
+    if (y + extra > bottomLimit) {
+      doc.addPage();
+      y = 50;
+    }
+  }
+
+  function setColor(rgb) {
+    doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+  }
+
+  // ---- Header ----
+  setColor(PDF_COLORS.accent);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.text("SkillMatch", marginX, y);
+  y += 15;
+  setColor(PDF_COLORS.muted);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10.5);
+  doc.text(`Tailored Resume Draft${jobRole ? ` -- ${jobRole}` : ""}`, marginX, y);
+  y += 14;
+  doc.setFontSize(8.5);
+  doc.text(`Generated ${new Date().toLocaleString()}`, marginX, y);
+  y += 10;
+  doc.setDrawColor(PDF_COLORS.border[0], PDF_COLORS.border[1], PDF_COLORS.border[2]);
+  doc.setLineWidth(0.75);
+  doc.line(marginX, y, marginX + maxWidth, y);
+  y += 20;
+
+  // ---- Body: the editable draft, line by line, preserving line breaks so
+  // resume bullets/sections stay intact instead of getting reflowed. ----
+  setColor(PDF_COLORS.text);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
+  text.split(/\r?\n/).forEach((line) => {
+    if (!line.trim()) {
+      ensureRoom(8);
+      y += 8;
+      return;
+    }
+    doc.splitTextToSize(line, maxWidth).forEach((wrapped) => {
+      ensureRoom(13);
+      doc.text(wrapped, marginX, y);
+      y += 13;
+    });
+  });
+
+  // ---- Footer: disclaimer + page numbers on every page ----
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    setColor(PDF_COLORS.muted);
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7.5);
+    doc.text(
+      "Draft generated by SkillMatch -- review carefully before using; only claim skills you actually have.",
+      marginX,
+      pageHeight - 22
+    );
+    const pageLabel = `Page ${i} of ${totalPages}`;
+    doc.text(pageLabel, pageWidth - marginX - doc.getTextWidth(pageLabel), pageHeight - 22);
+  }
+
+  return doc;
+}
+
 // Turns already-computed signals (failed ATS checks + missing-skill "how to
 // show it" guidance) into a short, prioritized list of concrete edits --
 // ATS fails first since they're the most specific and actionable, then a
@@ -1405,9 +1524,10 @@ function buildEditSuggestions(analysis, ats) {
   return suggestions.slice(0, 8);
 }
 
-function renderEditSuggestions({ analysis, ats, resumeText }) {
+function renderEditSuggestions({ analysis, ats, resumeText, jobRole }) {
   const resultEl = document.getElementById("tailorResult");
   const suggestions = buildEditSuggestions(analysis, ats);
+  const tailoredText = buildTailoredResumeText({ resumeText, jobRole, analysis });
 
   const suggestionsHtml = suggestions.length
     ? `<ul class="tailor-changes">${suggestions.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>`
@@ -1417,12 +1537,13 @@ function renderEditSuggestions({ analysis, ats, resumeText }) {
     <div class="tailor-output">
       <h4>Things to fix</h4>
       ${suggestionsHtml}
-      <h4>Your resume <span class="muted">— edit freely below</span></h4>
-      <p class="muted">This starts as your original text. Work through the suggestions above and edit directly below, then copy or download when you're happy with it.</p>
-      <textarea id="tailoredResumeText" class="tailor-textarea">${escapeHtml(resumeText)}</textarea>
+      <h4>Tailored draft <span class="muted">— your resume, plus the skills this JD asks for that we didn't find</span></h4>
+      <p class="muted">Only claim skills you genuinely have. Work through the suggestions above, edit directly below, then download when you're happy with it.</p>
+      <textarea id="tailoredResumeText" class="tailor-textarea">${escapeHtml(tailoredText)}</textarea>
       <div class="tailor-actions">
-        <button type="button" class="primary" id="copyTailoredBtn">Copy</button>
-        <button type="button" class="primary" id="downloadTailoredBtn">Download .txt</button>
+        <button type="button" class="primary" id="copyTailoredBtn">📋 Copy</button>
+        <button type="button" class="primary" id="downloadTailoredBtn">⬇️ Download .txt</button>
+        <button type="button" class="primary" id="downloadTailoredPdfBtn">⬇️ Download PDF</button>
       </div>
     </div>`;
 
@@ -1434,7 +1555,7 @@ function renderEditSuggestions({ analysis, ats, resumeText }) {
       const copyBtn = document.getElementById("copyTailoredBtn");
       copyBtn.textContent = "Copied!";
       setTimeout(() => {
-        copyBtn.textContent = "Copy";
+        copyBtn.textContent = "📋 Copy";
       }, 1500);
     } catch (e) {}
   });
@@ -1444,9 +1565,22 @@ function renderEditSuggestions({ analysis, ats, resumeText }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "edited-resume.txt";
+    a.download = "tailored-resume.txt";
     a.click();
     URL.revokeObjectURL(url);
+  });
+
+  document.getElementById("downloadTailoredPdfBtn").addEventListener("click", (e) => {
+    const btn = e.currentTarget;
+    const original = btn.textContent;
+    try {
+      buildTailoredResumePdf({ text: textarea.value, jobRole }).save("tailored-resume.pdf");
+    } catch (err) {
+      btn.textContent = "Couldn't generate PDF";
+      setTimeout(() => {
+        btn.textContent = original;
+      }, 2000);
+    }
   });
 }
 
