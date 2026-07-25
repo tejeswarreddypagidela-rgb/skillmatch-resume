@@ -1620,9 +1620,12 @@ function renderEditSuggestions({ analysis, ats, resumeText, jobRole }) {
 
 const ANALYSIS_STAGES = [
   "Reading job description...",
-  "Identifying required and preferred skills...",
-  "Scanning your resume for matches...",
-  "Weighing gaps and calculating fit score...",
+  "Analyzing required and preferred skills...",
+  "Analyzing your resume...",
+  "Analyzing skill matches and gaps...",
+  "Analyzing ATS compatibility...",
+  "Calculating your fit score...",
+  "Preparing your report...",
 ];
 
 function sleep(ms) {
@@ -1670,7 +1673,7 @@ async function runAnalysis() {
   try {
     for (const stage of ANALYSIS_STAGES) {
       renderLoading(stage);
-      await sleep(500);
+      await sleep(650);
     }
 
     const analysis = analyzeSkills(jobDescription, resumeText);
