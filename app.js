@@ -1426,7 +1426,7 @@ function findResumeHeadings(lines) {
 // the end. We never invent experience or silently claim skills for the
 // user -- every addition is explicitly labeled "only if you genuinely have
 // them."
-function buildTailoredResumeText({ resumeText, jobRole, analysis }) {
+function buildTailoredResumeText({ resumeText, analysis }) {
   const missing = analysis.missing || [];
   const otherTerms = (analysis.otherTerms && analysis.otherTerms.missing) || [];
   if (!missing.length && !otherTerms.length) return resumeText.trim();
@@ -1437,8 +1437,10 @@ function buildTailoredResumeText({ resumeText, jobRole, analysis }) {
   });
   if (otherTerms.length) additionLines.push(`Other: ${otherTerms.join(", ")}`);
 
-  const noteLine = `Consider adding (only if you genuinely have them) -- gaps for ${jobRole || "this role"}:`;
-
+  // The added lines read as plain resume content -- no "consider adding"
+  // commentary inside the document itself. The honesty caveat (only claim
+  // skills you actually have) lives in the surrounding UI copy and the PDF
+  // footer instead, so the downloadable file is just the resume.
   const lines = resumeText.replace(/\r\n/g, "\n").split("\n");
   const headings = findResumeHeadings(lines);
   const skillsHeading = headings.find((h) => h.id === "skills");
@@ -1448,21 +1450,21 @@ function buildTailoredResumeText({ resumeText, jobRole, analysis }) {
     // Append after the section's existing content (right before the next
     // heading, or end of resume) rather than right after the heading --
     // reads as "here's what you already have, plus this" instead of
-    // burying the existing list under the suggestions.
+    // burying the existing list under the additions.
     const laterHeadingIndexes = headings.filter((h) => h.index > skillsHeading.index).map((h) => h.index);
     const sectionEnd = laterHeadingIndexes.length ? Math.min(...laterHeadingIndexes) : lines.length;
     let insertAt = sectionEnd;
     while (insertAt > skillsHeading.index + 1 && lines[insertAt - 1].trim() === "") insertAt--;
-    out.splice(insertAt, 0, "", noteLine, ...additionLines);
+    out.splice(insertAt, 0, ...additionLines);
   } else {
     const structural = headings.find((h) => ["experience", "education", "projects", "certifications"].includes(h.id));
     const target = structural || headings[0];
     if (target) {
-      out.splice(target.index, 0, "SKILLS", noteLine, ...additionLines, "");
+      out.splice(target.index, 0, "SKILLS", ...additionLines, "");
     } else {
       // Couldn't confidently read any section structure -- appending is the
       // only safe option left, same as before.
-      out.push("", "SKILLS", noteLine, ...additionLines);
+      out.push("", "SKILLS", ...additionLines);
     }
   }
 
@@ -1575,7 +1577,7 @@ function buildEditSuggestions(analysis, ats) {
 function renderEditSuggestions({ analysis, ats, resumeText, jobRole }) {
   const resultEl = document.getElementById("tailorResult");
   const suggestions = buildEditSuggestions(analysis, ats);
-  const tailoredText = buildTailoredResumeText({ resumeText, jobRole, analysis });
+  const tailoredText = buildTailoredResumeText({ resumeText, analysis });
 
   const suggestionsHtml = suggestions.length
     ? `<ul class="tailor-changes">${suggestions.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>`
