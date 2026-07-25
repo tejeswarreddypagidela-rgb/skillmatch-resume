@@ -617,17 +617,40 @@ body {
 
 .contact-form label {
   font-weight: 600;
-  font-size: 0.9rem;
-  margin-top: 12px;
+  font-size: 0.95rem;
+  margin-top: 16px;
 }
 
 .contact-form input,
 .contact-form textarea {
   width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--ui-border-fixed);
+  border-radius: 12px;
+  background: #ffffff;
+  color: #1a1d29;
+  font-family: inherit;
+  font-size: 1.05rem;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .contact-form input:hover,
+  .contact-form textarea:hover {
+    border-color: var(--accent);
+  }
+}
+
+.contact-form input:focus,
+.contact-form textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-shadow);
 }
 
 .contact-form textarea {
-  min-height: 140px;
+  min-height: 180px;
+  line-height: 1.5;
   resize: vertical;
 }
 
