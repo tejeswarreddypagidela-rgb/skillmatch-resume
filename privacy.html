@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SkillMatch — Resume vs Job Fit Checker</title>
-  <meta name="description" content="Free, private resume-vs-job-description fit checker. See your skill matches, gaps, and ATS compatibility score — everything runs locally in your browser, nothing is ever uploaded." />
-  <link rel="canonical" href="https://skillmatch-fit.netlify.app/" />
+  <title>Privacy Policy — SkillMatch</title>
+  <meta name="description" content="SkillMatch's privacy policy: what data is collected (none), where your resume goes (nowhere), and how the app works entirely in your browser." />
+  <link rel="canonical" href="https://skillmatch-fit.netlify.app/privacy.html" />
 
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="SkillMatch — Resume vs Job Fit Checker" />
-  <meta property="og:description" content="Free, private resume-vs-job-description fit checker. See your skill matches, gaps, and ATS compatibility score — everything runs locally in your browser, nothing is ever uploaded." />
-  <meta property="og:url" content="https://skillmatch-fit.netlify.app/" />
+  <meta property="og:title" content="Privacy Policy — SkillMatch" />
+  <meta property="og:description" content="What data SkillMatch collects (none), and how the app works entirely in your browser." />
+  <meta property="og:url" content="https://skillmatch-fit.netlify.app/privacy.html" />
   <meta property="og:image" content="https://skillmatch-fit.netlify.app/icons/icon-512.png" />
 
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="SkillMatch — Resume vs Job Fit Checker" />
-  <meta name="twitter:description" content="Free, private resume-vs-job-description fit checker. See your skill matches, gaps, and ATS compatibility score — everything runs locally in your browser, nothing is ever uploaded." />
+  <meta name="twitter:title" content="Privacy Policy — SkillMatch" />
+  <meta name="twitter:description" content="What data SkillMatch collects (none), and how the app works entirely in your browser." />
   <meta name="twitter:image" content="https://skillmatch-fit.netlify.app/icons/icon-512.png" />
 
   <link rel="stylesheet" href="style.css" />
@@ -131,54 +131,44 @@
 
   <div class="app">
     <nav class="sitenav" aria-label="Main">
-      <a href="index.html" aria-current="page">Home</a>
+      <a href="index.html">Home</a>
       <a href="about.html">About</a>
       <a href="pricing.html">Pricing</a>
       <a href="contact.html">Contact</a>
     </nav>
 
     <header class="topbar">
-      <h1>SkillMatch</h1>
-      <p>Upload your resume and paste a job description to see if your skills are a good fit — free, private, and runs entirely in your browser.</p>
+      <h1>Privacy Policy</h1>
+      <p>Last updated July 25, 2026.</p>
     </header>
 
-    <main class="layout">
-      <div class="left-column">
-        <p class="panel-tagline">Get your resume analyzed by AI</p>
-        <section class="panel input-panel">
-        <label for="jobRole">Job Role</label>
-        <input id="jobRole" type="text" placeholder="e.g. Frontend Developer" />
+    <main class="layout layout-single">
+      <section class="panel page-content">
+        <h2>The short version</h2>
+        <p>SkillMatch doesn't collect your data because it can't — there is no backend server for it to go to. Everything, including reading your resume file, runs as JavaScript inside your own browser tab.</p>
 
-        <label for="jobDescription">Job Description</label>
-        <textarea id="jobDescription" placeholder="Paste the full job description here..."></textarea>
+        <h2>What we don't do</h2>
+        <ul>
+          <li>We don't upload your resume, job description, or any file you provide to any server.</li>
+          <li>We don't use analytics, ad trackers, or third-party scripts.</li>
+          <li>We don't set cookies.</li>
+          <li>We don't require or store an account, email, or name to use the tool.</li>
+        </ul>
 
-        <label>Your Resume</label>
-        <div class="resume-upload-row">
-          <input id="resumeFile" type="file" class="visually-hidden-file" />
-          <label for="resumeFile" class="primary upload-btn">📎 Add File / Resume</label>
-          <span id="resumeFileChip" class="file-chip" hidden>
-            <span id="resumeFileName" class="file-chip-name"></span>
-            <button type="button" id="removeResumeBtn" class="file-chip-remove" aria-label="Remove resume file">✕</button>
-          </span>
-        </div>
-        <p id="uploadStatus" class="upload-status" aria-live="polite">No resume uploaded yet.</p>
+        <h2>What is stored locally</h2>
+        <p>SkillMatch uses your browser's <code>localStorage</code> for exactly one thing: remembering whether you prefer light or dark mode. That preference never leaves your device and is never transmitted anywhere. Clearing your browser data removes it.</p>
 
-        <p id="formError" class="error-text" hidden></p>
+        <h2>The Contact page</h2>
+        <p>The contact form builds an email in your own email client (a <code>mailto:</code> link) — the message is sent directly from your inbox to ours over normal email, the same as if you'd written it yourself. SkillMatch itself never sees or stores that message.</p>
 
-        <div class="actions">
-          <button id="analyzeBtn" type="button" class="primary">Submit</button>
-          <button id="sampleBtn" type="button" class="primary">Load Example</button>
-          <button id="clearBtn" type="button" class="primary">Clear</button>
-        </div>
+        <h2>Hosting</h2>
+        <p>This site is hosted as static files on Netlify, which — like any host — may log basic connection metadata (such as IP address and request timing) for operating the service. SkillMatch's own code does not add any tracking on top of that.</p>
 
-        <p class="privacy-note">🔒 Everything, including PDF parsing, runs locally in your browser. Your file is never uploaded anywhere.</p>
-        </section>
-      </div>
+        <h2>Changes</h2>
+        <p>If this policy changes, the date at the top of this page will change with it.</p>
 
-      <section class="panel results-panel" id="resultsPanel">
-        <div class="empty-state">
-          <p>Your analysis will appear here.</p>
-        </div>
+        <h2>Contact</h2>
+        <p>Questions about this policy: <a href="mailto:tejeswarreddypagidela@gmail.com">tejeswarreddypagidela@gmail.com</a>.</p>
       </section>
     </main>
 
@@ -195,20 +185,6 @@
     </footer>
   </div>
 
-  <script src="skills-db.js"></script>
-  <script src="fflate.min.js"></script>
-  <script src="tesseract.min.js"></script>
-  <script src="jspdf.umd.min.js"></script>
-  <script type="module">
-    import { getDocument, GlobalWorkerOptions } from "./pdf.min.mjs";
-    const workerResp = await fetch("./pdf.worker.min.mjs");
-    const workerText = await workerResp.text();
-    const blob = new Blob([workerText], { type: "text/javascript" });
-    GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
-    window.pdfjsLib = { getDocument };
-    window.dispatchEvent(new Event("pdfjs-ready"));
-  </script>
-  <script src="app.js"></script>
   <script src="theme.js"></script>
   <script>
     if ("serviceWorker" in navigator && location.protocol !== "file:") {

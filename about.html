@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SkillMatch — Resume vs Job Fit Checker</title>
-  <meta name="description" content="Free, private resume-vs-job-description fit checker. See your skill matches, gaps, and ATS compatibility score — everything runs locally in your browser, nothing is ever uploaded." />
-  <link rel="canonical" href="https://skillmatch-fit.netlify.app/" />
+  <title>About — SkillMatch</title>
+  <meta name="description" content="SkillMatch is a free, private resume-vs-job-description fit checker that runs entirely in your browser. Learn how it works and why nothing you upload ever leaves your device." />
+  <link rel="canonical" href="https://skillmatch-fit.netlify.app/about.html" />
 
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="SkillMatch — Resume vs Job Fit Checker" />
-  <meta property="og:description" content="Free, private resume-vs-job-description fit checker. See your skill matches, gaps, and ATS compatibility score — everything runs locally in your browser, nothing is ever uploaded." />
-  <meta property="og:url" content="https://skillmatch-fit.netlify.app/" />
+  <meta property="og:title" content="About — SkillMatch" />
+  <meta property="og:description" content="SkillMatch is a free, private resume-vs-job-description fit checker that runs entirely in your browser." />
+  <meta property="og:url" content="https://skillmatch-fit.netlify.app/about.html" />
   <meta property="og:image" content="https://skillmatch-fit.netlify.app/icons/icon-512.png" />
 
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="SkillMatch — Resume vs Job Fit Checker" />
-  <meta name="twitter:description" content="Free, private resume-vs-job-description fit checker. See your skill matches, gaps, and ATS compatibility score — everything runs locally in your browser, nothing is ever uploaded." />
+  <meta name="twitter:title" content="About — SkillMatch" />
+  <meta name="twitter:description" content="SkillMatch is a free, private resume-vs-job-description fit checker that runs entirely in your browser." />
   <meta name="twitter:image" content="https://skillmatch-fit.netlify.app/icons/icon-512.png" />
 
   <link rel="stylesheet" href="style.css" />
@@ -131,54 +131,30 @@
 
   <div class="app">
     <nav class="sitenav" aria-label="Main">
-      <a href="index.html" aria-current="page">Home</a>
-      <a href="about.html">About</a>
+      <a href="index.html">Home</a>
+      <a href="about.html" aria-current="page">About</a>
       <a href="pricing.html">Pricing</a>
       <a href="contact.html">Contact</a>
     </nav>
 
     <header class="topbar">
-      <h1>SkillMatch</h1>
-      <p>Upload your resume and paste a job description to see if your skills are a good fit — free, private, and runs entirely in your browser.</p>
+      <h1>About SkillMatch</h1>
+      <p>Why we built a resume checker that never sees your resume.</p>
     </header>
 
-    <main class="layout">
-      <div class="left-column">
-        <p class="panel-tagline">Get your resume analyzed by AI</p>
-        <section class="panel input-panel">
-        <label for="jobRole">Job Role</label>
-        <input id="jobRole" type="text" placeholder="e.g. Frontend Developer" />
+    <main class="layout layout-single">
+      <section class="panel page-content">
+        <h2>What it does</h2>
+        <p>SkillMatch compares your resume against a job description and shows you where you're a strong match, where you're missing keywords the job is looking for, and how an Applicant Tracking System (ATS) is likely to parse your file. The goal is to help you tailor a resume before you hit submit, not to promise you an interview.</p>
 
-        <label for="jobDescription">Job Description</label>
-        <textarea id="jobDescription" placeholder="Paste the full job description here..."></textarea>
+        <h2>How it works</h2>
+        <p>Paste in a job description, upload a resume (PDF, DOCX, or plain text), and SkillMatch extracts the text, matches it against a curated skills database, and scores the overlap. If your PDF is a scanned image rather than real text, it falls back to on-device OCR to read it.</p>
 
-        <label>Your Resume</label>
-        <div class="resume-upload-row">
-          <input id="resumeFile" type="file" class="visually-hidden-file" />
-          <label for="resumeFile" class="primary upload-btn">📎 Add File / Resume</label>
-          <span id="resumeFileChip" class="file-chip" hidden>
-            <span id="resumeFileName" class="file-chip-name"></span>
-            <button type="button" id="removeResumeBtn" class="file-chip-remove" aria-label="Remove resume file">✕</button>
-          </span>
-        </div>
-        <p id="uploadStatus" class="upload-status" aria-live="polite">No resume uploaded yet.</p>
+        <h2>Why it's private</h2>
+        <p>Every step — file parsing, OCR, and skill matching — runs as JavaScript in your browser. Your resume is never uploaded to a server, because there is no server: SkillMatch is a static site with no backend. Nothing about your job search is logged, tracked, or stored anywhere but your own device.</p>
 
-        <p id="formError" class="error-text" hidden></p>
-
-        <div class="actions">
-          <button id="analyzeBtn" type="button" class="primary">Submit</button>
-          <button id="sampleBtn" type="button" class="primary">Load Example</button>
-          <button id="clearBtn" type="button" class="primary">Clear</button>
-        </div>
-
-        <p class="privacy-note">🔒 Everything, including PDF parsing, runs locally in your browser. Your file is never uploaded anywhere.</p>
-        </section>
-      </div>
-
-      <section class="panel results-panel" id="resultsPanel">
-        <div class="empty-state">
-          <p>Your analysis will appear here.</p>
-        </div>
+        <h2>Who it's for</h2>
+        <p>Job seekers who want a quick, honest gut-check before applying — especially for roles where a keyword-matching ATS is the first filter. It's a rule-based tool, not a hiring decision, so use its output as a starting point rather than the final word.</p>
       </section>
     </main>
 
@@ -195,20 +171,6 @@
     </footer>
   </div>
 
-  <script src="skills-db.js"></script>
-  <script src="fflate.min.js"></script>
-  <script src="tesseract.min.js"></script>
-  <script src="jspdf.umd.min.js"></script>
-  <script type="module">
-    import { getDocument, GlobalWorkerOptions } from "./pdf.min.mjs";
-    const workerResp = await fetch("./pdf.worker.min.mjs");
-    const workerText = await workerResp.text();
-    const blob = new Blob([workerText], { type: "text/javascript" });
-    GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
-    window.pdfjsLib = { getDocument };
-    window.dispatchEvent(new Event("pdfjs-ready"));
-  </script>
-  <script src="app.js"></script>
   <script src="theme.js"></script>
   <script>
     if ("serviceWorker" in navigator && location.protocol !== "file:") {

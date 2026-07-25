@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SkillMatch — Resume vs Job Fit Checker</title>
-  <meta name="description" content="Free, private resume-vs-job-description fit checker. See your skill matches, gaps, and ATS compatibility score — everything runs locally in your browser, nothing is ever uploaded." />
-  <link rel="canonical" href="https://skillmatch-fit.netlify.app/" />
+  <title>Pricing — SkillMatch</title>
+  <meta name="description" content="SkillMatch is free, with no account, no paywall, and no limits. See exactly what's included." />
+  <link rel="canonical" href="https://skillmatch-fit.netlify.app/pricing.html" />
 
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="SkillMatch — Resume vs Job Fit Checker" />
-  <meta property="og:description" content="Free, private resume-vs-job-description fit checker. See your skill matches, gaps, and ATS compatibility score — everything runs locally in your browser, nothing is ever uploaded." />
-  <meta property="og:url" content="https://skillmatch-fit.netlify.app/" />
+  <meta property="og:title" content="Pricing — SkillMatch" />
+  <meta property="og:description" content="SkillMatch is free, with no account, no paywall, and no limits." />
+  <meta property="og:url" content="https://skillmatch-fit.netlify.app/pricing.html" />
   <meta property="og:image" content="https://skillmatch-fit.netlify.app/icons/icon-512.png" />
 
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="SkillMatch — Resume vs Job Fit Checker" />
-  <meta name="twitter:description" content="Free, private resume-vs-job-description fit checker. See your skill matches, gaps, and ATS compatibility score — everything runs locally in your browser, nothing is ever uploaded." />
+  <meta name="twitter:title" content="Pricing — SkillMatch" />
+  <meta name="twitter:description" content="SkillMatch is free, with no account, no paywall, and no limits." />
   <meta name="twitter:image" content="https://skillmatch-fit.netlify.app/icons/icon-512.png" />
 
   <link rel="stylesheet" href="style.css" />
@@ -131,54 +131,32 @@
 
   <div class="app">
     <nav class="sitenav" aria-label="Main">
-      <a href="index.html" aria-current="page">Home</a>
+      <a href="index.html">Home</a>
       <a href="about.html">About</a>
-      <a href="pricing.html">Pricing</a>
+      <a href="pricing.html" aria-current="page">Pricing</a>
       <a href="contact.html">Contact</a>
     </nav>
 
     <header class="topbar">
-      <h1>SkillMatch</h1>
-      <p>Upload your resume and paste a job description to see if your skills are a good fit — free, private, and runs entirely in your browser.</p>
+      <h1>Pricing</h1>
+      <p>One plan. It's free.</p>
     </header>
 
-    <main class="layout">
-      <div class="left-column">
-        <p class="panel-tagline">Get your resume analyzed by AI</p>
-        <section class="panel input-panel">
-        <label for="jobRole">Job Role</label>
-        <input id="jobRole" type="text" placeholder="e.g. Frontend Developer" />
-
-        <label for="jobDescription">Job Description</label>
-        <textarea id="jobDescription" placeholder="Paste the full job description here..."></textarea>
-
-        <label>Your Resume</label>
-        <div class="resume-upload-row">
-          <input id="resumeFile" type="file" class="visually-hidden-file" />
-          <label for="resumeFile" class="primary upload-btn">📎 Add File / Resume</label>
-          <span id="resumeFileChip" class="file-chip" hidden>
-            <span id="resumeFileName" class="file-chip-name"></span>
-            <button type="button" id="removeResumeBtn" class="file-chip-remove" aria-label="Remove resume file">✕</button>
-          </span>
-        </div>
-        <p id="uploadStatus" class="upload-status" aria-live="polite">No resume uploaded yet.</p>
-
-        <p id="formError" class="error-text" hidden></p>
-
-        <div class="actions">
-          <button id="analyzeBtn" type="button" class="primary">Submit</button>
-          <button id="sampleBtn" type="button" class="primary">Load Example</button>
-          <button id="clearBtn" type="button" class="primary">Clear</button>
-        </div>
-
-        <p class="privacy-note">🔒 Everything, including PDF parsing, runs locally in your browser. Your file is never uploaded anywhere.</p>
-        </section>
-      </div>
-
-      <section class="panel results-panel" id="resultsPanel">
-        <div class="empty-state">
-          <p>Your analysis will appear here.</p>
-        </div>
+    <main class="layout layout-single">
+      <section class="panel pricing-card">
+        <p class="panel-tagline">SkillMatch Free</p>
+        <div class="price">$0<span>&nbsp;/ forever</span></div>
+        <p>No account, no card, no catch.</p>
+        <ul class="pricing-features">
+          <li>Unlimited resume-vs-job checks</li>
+          <li>Skill match &amp; gap analysis</li>
+          <li>ATS compatibility score</li>
+          <li>PDF report export</li>
+          <li>OCR fallback for scanned PDFs</li>
+          <li>100% private — nothing is ever uploaded</li>
+          <li>No sign-up required</li>
+        </ul>
+        <a href="index.html" class="primary pricing-cta">Try it now</a>
       </section>
     </main>
 
@@ -195,20 +173,6 @@
     </footer>
   </div>
 
-  <script src="skills-db.js"></script>
-  <script src="fflate.min.js"></script>
-  <script src="tesseract.min.js"></script>
-  <script src="jspdf.umd.min.js"></script>
-  <script type="module">
-    import { getDocument, GlobalWorkerOptions } from "./pdf.min.mjs";
-    const workerResp = await fetch("./pdf.worker.min.mjs");
-    const workerText = await workerResp.text();
-    const blob = new Blob([workerText], { type: "text/javascript" });
-    GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
-    window.pdfjsLib = { getDocument };
-    window.dispatchEvent(new Event("pdfjs-ready"));
-  </script>
-  <script src="app.js"></script>
   <script src="theme.js"></script>
   <script>
     if ("serviceWorker" in navigator && location.protocol !== "file:") {

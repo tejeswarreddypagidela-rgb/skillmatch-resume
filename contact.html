@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SkillMatch — Resume vs Job Fit Checker</title>
-  <meta name="description" content="Free, private resume-vs-job-description fit checker. See your skill matches, gaps, and ATS compatibility score — everything runs locally in your browser, nothing is ever uploaded." />
-  <link rel="canonical" href="https://skillmatch-fit.netlify.app/" />
+  <title>Contact — SkillMatch</title>
+  <meta name="description" content="Get in touch about SkillMatch — bug reports, feature requests, or general feedback." />
+  <link rel="canonical" href="https://skillmatch-fit.netlify.app/contact.html" />
 
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="SkillMatch — Resume vs Job Fit Checker" />
-  <meta property="og:description" content="Free, private resume-vs-job-description fit checker. See your skill matches, gaps, and ATS compatibility score — everything runs locally in your browser, nothing is ever uploaded." />
-  <meta property="og:url" content="https://skillmatch-fit.netlify.app/" />
+  <meta property="og:title" content="Contact — SkillMatch" />
+  <meta property="og:description" content="Get in touch about SkillMatch — bug reports, feature requests, or general feedback." />
+  <meta property="og:url" content="https://skillmatch-fit.netlify.app/contact.html" />
   <meta property="og:image" content="https://skillmatch-fit.netlify.app/icons/icon-512.png" />
 
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="SkillMatch — Resume vs Job Fit Checker" />
-  <meta name="twitter:description" content="Free, private resume-vs-job-description fit checker. See your skill matches, gaps, and ATS compatibility score — everything runs locally in your browser, nothing is ever uploaded." />
+  <meta name="twitter:title" content="Contact — SkillMatch" />
+  <meta name="twitter:description" content="Get in touch about SkillMatch — bug reports, feature requests, or general feedback." />
   <meta name="twitter:image" content="https://skillmatch-fit.netlify.app/icons/icon-512.png" />
 
   <link rel="stylesheet" href="style.css" />
@@ -131,54 +131,35 @@
 
   <div class="app">
     <nav class="sitenav" aria-label="Main">
-      <a href="index.html" aria-current="page">Home</a>
+      <a href="index.html">Home</a>
       <a href="about.html">About</a>
       <a href="pricing.html">Pricing</a>
-      <a href="contact.html">Contact</a>
+      <a href="contact.html" aria-current="page">Contact</a>
     </nav>
 
     <header class="topbar">
-      <h1>SkillMatch</h1>
-      <p>Upload your resume and paste a job description to see if your skills are a good fit — free, private, and runs entirely in your browser.</p>
+      <h1>Contact</h1>
+      <p>Bug reports, feature requests, or general feedback — all welcome.</p>
     </header>
 
-    <main class="layout">
-      <div class="left-column">
-        <p class="panel-tagline">Get your resume analyzed by AI</p>
-        <section class="panel input-panel">
-        <label for="jobRole">Job Role</label>
-        <input id="jobRole" type="text" placeholder="e.g. Frontend Developer" />
+    <main class="layout layout-single">
+      <section class="panel page-content">
+        <p>This form opens your email client with the message pre-filled — nothing is sent through a server or stored anywhere. You can also email directly at <a href="mailto:tejeswarreddypagidela@gmail.com">tejeswarreddypagidela@gmail.com</a>.</p>
 
-        <label for="jobDescription">Job Description</label>
-        <textarea id="jobDescription" placeholder="Paste the full job description here..."></textarea>
+        <form id="contactForm" class="contact-form">
+          <label for="contactName">Name</label>
+          <input id="contactName" type="text" required />
 
-        <label>Your Resume</label>
-        <div class="resume-upload-row">
-          <input id="resumeFile" type="file" class="visually-hidden-file" />
-          <label for="resumeFile" class="primary upload-btn">📎 Add File / Resume</label>
-          <span id="resumeFileChip" class="file-chip" hidden>
-            <span id="resumeFileName" class="file-chip-name"></span>
-            <button type="button" id="removeResumeBtn" class="file-chip-remove" aria-label="Remove resume file">✕</button>
-          </span>
-        </div>
-        <p id="uploadStatus" class="upload-status" aria-live="polite">No resume uploaded yet.</p>
+          <label for="contactEmail">Your email</label>
+          <input id="contactEmail" type="email" required />
 
-        <p id="formError" class="error-text" hidden></p>
+          <label for="contactMessage">Message</label>
+          <textarea id="contactMessage" required></textarea>
 
-        <div class="actions">
-          <button id="analyzeBtn" type="button" class="primary">Submit</button>
-          <button id="sampleBtn" type="button" class="primary">Load Example</button>
-          <button id="clearBtn" type="button" class="primary">Clear</button>
-        </div>
-
-        <p class="privacy-note">🔒 Everything, including PDF parsing, runs locally in your browser. Your file is never uploaded anywhere.</p>
-        </section>
-      </div>
-
-      <section class="panel results-panel" id="resultsPanel">
-        <div class="empty-state">
-          <p>Your analysis will appear here.</p>
-        </div>
+          <div class="actions">
+            <button type="submit" class="primary">Send</button>
+          </div>
+        </form>
       </section>
     </main>
 
@@ -195,21 +176,21 @@
     </footer>
   </div>
 
-  <script src="skills-db.js"></script>
-  <script src="fflate.min.js"></script>
-  <script src="tesseract.min.js"></script>
-  <script src="jspdf.umd.min.js"></script>
-  <script type="module">
-    import { getDocument, GlobalWorkerOptions } from "./pdf.min.mjs";
-    const workerResp = await fetch("./pdf.worker.min.mjs");
-    const workerText = await workerResp.text();
-    const blob = new Blob([workerText], { type: "text/javascript" });
-    GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
-    window.pdfjsLib = { getDocument };
-    window.dispatchEvent(new Event("pdfjs-ready"));
-  </script>
-  <script src="app.js"></script>
   <script src="theme.js"></script>
+  <script>
+    document.getElementById("contactForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = document.getElementById("contactName").value;
+      const email = document.getElementById("contactEmail").value;
+      const message = document.getElementById("contactMessage").value;
+      const subject = `SkillMatch contact from ${name}`;
+      const body = `${message}\n\n— ${name} (${email})`;
+      window.location.href =
+        "mailto:tejeswarreddypagidela@gmail.com" +
+        "?subject=" + encodeURIComponent(subject) +
+        "&body=" + encodeURIComponent(body);
+    });
+  </script>
   <script>
     if ("serviceWorker" in navigator && location.protocol !== "file:") {
       window.addEventListener("load", () => {
