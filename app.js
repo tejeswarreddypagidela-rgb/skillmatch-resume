@@ -1071,23 +1071,13 @@ function renderResults({ jobRole, analysis, verdict, resumeText, ats }) {
           ? `<h3>🎯 Get a Tailored Resume to Download</h3>
              <p class="muted">This resume isn't a strong enough match to apply as-is yet. Below is a draft that adds the skills this JD is looking for — edit it, then download as PDF or .txt. Rule-based, no AI, nothing ever leaves your browser.</p>`
           : `<h3>Suggested Resume Edits ✏️</h3>
-             <p class="muted">Rule-based suggestions pulled from the analysis above, plus an editable draft of your resume — no AI, no network call, nothing ever leaves your browser.</p>
-             <button id="tailorBtn" type="button" class="primary">Show Suggested Edits</button>`
+             <p class="muted">Rule-based suggestions pulled from the analysis above, plus an editable draft of your resume — no AI, no network call, nothing ever leaves your browser.</p>`
       }
       <div id="tailorResult"></div>
     </div>
   `;
 
-  if (needsTailoring) {
-    renderEditSuggestions({ analysis, ats, resumeText, jobRole });
-  } else {
-    const tailorBtn = document.getElementById("tailorBtn");
-    if (tailorBtn) {
-      tailorBtn.addEventListener("click", () => {
-        renderEditSuggestions({ analysis, ats, resumeText, jobRole });
-      });
-    }
-  }
+  renderEditSuggestions({ analysis, ats, resumeText, jobRole });
 
   document.getElementById("copyReportBtn").addEventListener("click", async (e) => {
     const btn = e.currentTarget;
