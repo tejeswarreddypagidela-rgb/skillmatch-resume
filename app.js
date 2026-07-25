@@ -1567,7 +1567,6 @@ function loadSample() {
   document.getElementById("resumeFile").value = "";
   hideFileChip();
   setUploadStatus(`✅ Example resume loaded (${SAMPLE.resume.length.toLocaleString()} characters)`, "success");
-  saveFormState();
 }
 
 function clearForm() {
@@ -1586,7 +1585,6 @@ function clearForm() {
     <div class="empty-state">
       <p>Your analysis will appear here.</p>
     </div>`;
-  clearFormState();
 }
 
 let pdfjsReady = typeof window.pdfjsLib !== "undefined";
@@ -1727,63 +1725,6 @@ let currentResumeFileExt = null;
 let currentResumeUsedOcr = false;
 let currentResumeFileName = "";
 
-const FORM_STATE_KEY = "skillmatch-formstate";
-
-// Persists the form as-is (nothing leaves the browser -- same localStorage
-// used for the theme toggle) so a refresh or accidental tab close doesn't
-// lose a pasted JD or uploaded resume.
-function saveFormState() {
-  try {
-    localStorage.setItem(
-      FORM_STATE_KEY,
-      JSON.stringify({
-        jobRole: document.getElementById("jobRole").value,
-        jobDescription: document.getElementById("jobDescription").value,
-        resumeText: currentResumeText,
-        resumeFileExt: currentResumeFileExt,
-        resumeUsedOcr: currentResumeUsedOcr,
-        resumeFileName: currentResumeFileName,
-      })
-    );
-  } catch (e) {}
-}
-
-function clearFormState() {
-  try {
-    localStorage.removeItem(FORM_STATE_KEY);
-  } catch (e) {}
-}
-
-let saveFormStateTimer = null;
-function scheduleSaveFormState() {
-  clearTimeout(saveFormStateTimer);
-  saveFormStateTimer = setTimeout(saveFormState, 400);
-}
-
-function restoreFormState() {
-  let saved = null;
-  try {
-    const raw = localStorage.getItem(FORM_STATE_KEY);
-    if (raw) saved = JSON.parse(raw);
-  } catch (e) {}
-  if (!saved) return;
-
-  if (saved.jobRole) document.getElementById("jobRole").value = saved.jobRole;
-  if (saved.jobDescription) document.getElementById("jobDescription").value = saved.jobDescription;
-
-  if (saved.resumeText) {
-    currentResumeText = saved.resumeText;
-    currentResumeFileExt = saved.resumeFileExt || null;
-    currentResumeUsedOcr = !!saved.resumeUsedOcr;
-    currentResumeFileName = saved.resumeFileName || "your resume";
-    showFileChip(currentResumeFileName);
-    setUploadStatus(
-      `✅ Restored ${currentResumeFileName} from your last visit (${currentResumeText.length.toLocaleString()} characters)`,
-      "success"
-    );
-  }
-}
-
 function setUploadStatus(message, tone) {
   const el = document.getElementById("uploadStatus");
   el.textContent = message;
@@ -1824,7 +1765,6 @@ function applyResumeResult(myGeneration, text, message, tone, meta) {
   currentResumeFileExt = meta ? meta.fileExt : null;
   currentResumeUsedOcr = meta ? !!meta.usedOcr : false;
   setUploadStatus(message, tone);
-  saveFormState();
 }
 
 async function processResumeFile(file, myGeneration) {
@@ -1958,21 +1898,15 @@ document.getElementById("removeResumeBtn").addEventListener("click", () => {
   hideFileChip();
   setUploadStatus("No resume uploaded yet.", "");
   document.getElementById("formError").hidden = true;
-  saveFormState();
 });
-
-document.getElementById("jobRole").addEventListener("input", scheduleSaveFormState);
 
 document.getElementById("jobDescription").addEventListener("input", () => {
   document.getElementById("formError").hidden = true;
-  scheduleSaveFormState();
 });
 
 document.getElementById("analyzeBtn").addEventListener("click", runAnalysis);
 document.getElementById("sampleBtn").addEventListener("click", loadSample);
 document.getElementById("clearBtn").addEventListener("click", clearForm);
-
-restoreFormState();
 
 function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
