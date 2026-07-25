@@ -1391,34 +1391,82 @@ function buildReportPdf({ jobRole, analysis, verdict, ats }) {
   return doc;
 }
 
-// Builds a downloadable "tailored" draft: the user's original resume text,
-// unmodified, plus a clearly-labeled appendix listing the skills this JD
-// asks for that our analysis didn't find in the resume -- grouped by
-// category so it reads like a real "Skills" section addition, not a data
-// dump. We never invent experience or silently insert claimed skills into
-// the resume body itself; the appendix is explicit and tells the user to
-// only add what they actually have.
+// Heading patterns used to read the resume's own structure back out of its
+// extracted text, so the tailored draft can slot into it instead of bolting
+// changes on at the end. Deliberately whole-line-anchored and short-length
+// gated so we don't false-match a bullet that merely mentions "skills"
+// mid-sentence.
+const RESUME_SECTION_HEADINGS = [
+  { id: "summary", re: /^(summary|professional summary|profile|objective|about( me)?)\s*:?$/i },
+  { id: "skills", re: /^(skills|technical skills|core competencies|key skills|technologies|tools\s*(&|and)\s*technologies)\s*:?$/i },
+  { id: "experience", re: /^(experience|work experience|professional experience|employment history)\s*:?$/i },
+  { id: "education", re: /^education\s*:?$/i },
+  { id: "projects", re: /^(projects|personal projects)\s*:?$/i },
+  { id: "certifications", re: /^(certifications?|licenses?)\s*:?$/i },
+];
+
+function findResumeHeadings(lines) {
+  const headings = [];
+  lines.forEach((line, index) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.length > 40) return;
+    const match = RESUME_SECTION_HEADINGS.find((h) => h.re.test(trimmed));
+    if (match) headings.push({ index, id: match.id });
+  });
+  return headings;
+}
+
+// Builds a downloadable "tailored" draft by editing the user's own resume
+// text in place -- same section order, same headings, same bullet style --
+// rather than appending a separate block. If it already has a Skills
+// section, the additions are inserted right into it; otherwise a new one is
+// inserted where a Skills section would normally sit (after any Summary,
+// before Experience/Education/Projects). Only as a last resort, when no
+// section structure can be read at all, does it fall back to appending at
+// the end. We never invent experience or silently claim skills for the
+// user -- every addition is explicitly labeled "only if you genuinely have
+// them."
 function buildTailoredResumeText({ resumeText, jobRole, analysis }) {
   const missing = analysis.missing || [];
   const otherTerms = (analysis.otherTerms && analysis.otherTerms.missing) || [];
   if (!missing.length && !otherTerms.length) return resumeText.trim();
 
-  const lines = ["", "", "-".repeat(60), `SKILLS TO ADD${jobRole ? ` -- tailored for: ${jobRole}` : ""}`, "-".repeat(60)];
-  lines.push(
-    "Only add skills you genuinely have -- these are gaps this job description",
-    "is looking for that weren't detected in your resume above.",
-    ""
-  );
-
+  const additionLines = [];
   groupByCategory(missing).forEach((skills, category) => {
-    lines.push(`${category}: ${skills.join(", ")}`);
+    additionLines.push(`${category}: ${skills.join(", ")}`);
   });
+  if (otherTerms.length) additionLines.push(`Other: ${otherTerms.join(", ")}`);
 
-  if (otherTerms.length) {
-    lines.push(`Other terms from this JD: ${otherTerms.join(", ")}`);
+  const noteLine = `Consider adding (only if you genuinely have them) -- gaps for ${jobRole || "this role"}:`;
+
+  const lines = resumeText.replace(/\r\n/g, "\n").split("\n");
+  const headings = findResumeHeadings(lines);
+  const skillsHeading = headings.find((h) => h.id === "skills");
+  const out = lines.slice();
+
+  if (skillsHeading) {
+    // Append after the section's existing content (right before the next
+    // heading, or end of resume) rather than right after the heading --
+    // reads as "here's what you already have, plus this" instead of
+    // burying the existing list under the suggestions.
+    const laterHeadingIndexes = headings.filter((h) => h.index > skillsHeading.index).map((h) => h.index);
+    const sectionEnd = laterHeadingIndexes.length ? Math.min(...laterHeadingIndexes) : lines.length;
+    let insertAt = sectionEnd;
+    while (insertAt > skillsHeading.index + 1 && lines[insertAt - 1].trim() === "") insertAt--;
+    out.splice(insertAt, 0, "", noteLine, ...additionLines);
+  } else {
+    const structural = headings.find((h) => ["experience", "education", "projects", "certifications"].includes(h.id));
+    const target = structural || headings[0];
+    if (target) {
+      out.splice(target.index, 0, "SKILLS", noteLine, ...additionLines, "");
+    } else {
+      // Couldn't confidently read any section structure -- appending is the
+      // only safe option left, same as before.
+      out.push("", "SKILLS", noteLine, ...additionLines);
+    }
   }
 
-  return `${resumeText.trim()}\n${lines.join("\n")}`;
+  return out.join("\n").trim();
 }
 
 // Renders whatever text is currently in the tailored-draft textarea as a PDF
