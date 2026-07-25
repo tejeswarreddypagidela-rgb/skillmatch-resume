@@ -1630,7 +1630,11 @@ function sleep(ms) {
 }
 
 function renderLoading(stageText) {
-  document.getElementById("resultsPanel").innerHTML = `
+  const panel = document.getElementById("resultsPanel");
+  const layout = document.querySelector("main.layout");
+  panel.hidden = false;
+  if (layout) layout.classList.remove("layout-single");
+  panel.innerHTML = `
     <div class="loading-state">
       <div class="spinner" aria-hidden="true"></div>
       <p>${escapeHtml(stageText)}</p>
@@ -1756,10 +1760,11 @@ function clearForm() {
   document.getElementById("resumeFile").value = "";
   hideFileChip();
   setUploadStatus("No resume uploaded yet.", "");
-  document.getElementById("resultsPanel").innerHTML = `
-    <div class="empty-state">
-      <p>Your analysis will appear here.</p>
-    </div>`;
+  const panel = document.getElementById("resultsPanel");
+  const layout = document.querySelector("main.layout");
+  panel.hidden = true;
+  panel.innerHTML = "";
+  if (layout) layout.classList.add("layout-single");
 }
 
 let pdfjsReady = typeof window.pdfjsLib !== "undefined";
