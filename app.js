@@ -959,7 +959,6 @@ function buildAtsBlock(ats) {
 function renderResults({ jobRole, analysis, verdict, resumeText, ats }) {
   const { score, matched, missing } = analysis;
   const panel = document.getElementById("resultsPanel");
-  const needsTailoring = verdict.tone === "bad" || verdict.tone === "warn";
 
   const roleLine = jobRole
     ? `<p class="role-line">Analysis for: <strong>${escapeHtml(jobRole)}</strong></p>`
@@ -1066,13 +1065,8 @@ function renderResults({ jobRole, analysis, verdict, resumeText, ats }) {
     </div>
 
     <div class="panel-block tailor-block">
-      ${
-        needsTailoring
-          ? `<h3>🎯 Get a Tailored Resume to Download</h3>
-             <p class="muted">This resume isn't a strong enough match to apply as-is yet. Below is a draft that adds the skills this JD is looking for — edit it, then download as PDF or .txt. Rule-based, no AI, nothing ever leaves your browser.</p>`
-          : `<h3>Suggested Resume Edits ✏️</h3>
-             <p class="muted">Rule-based suggestions pulled from the analysis above, plus an editable draft of your resume — no AI, no network call, nothing ever leaves your browser.</p>`
-      }
+      <h3>Suggested Resume Edits ✏️</h3>
+      <p class="muted">Rule-based suggestions pulled from the analysis above, plus an editable draft of your resume — no AI, no network call, nothing ever leaves your browser.</p>
       <div id="tailorResult"></div>
     </div>
   `;
