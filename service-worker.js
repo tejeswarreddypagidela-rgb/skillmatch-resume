@@ -2,11 +2,12 @@
 // keeps working offline after the first visit. Bump CACHE_NAME whenever any
 // cached file changes so returning visitors pick up the update instead of
 // being stuck on a stale cache forever.
-const CACHE_NAME = "skillmatch-v13";
+const CACHE_NAME = "skillmatch-v15";
 
 const APP_SHELL = [
   "./",
   "./index.html",
+  "./results.html",
   "./about.html",
   "./pricing.html",
   "./contact.html",

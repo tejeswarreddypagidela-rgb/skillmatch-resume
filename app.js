@@ -1659,6 +1659,12 @@ function setFormBusy(busy) {
   document.getElementById("clearBtn").disabled = busy;
 }
 
+// sessionStorage key used to hand the computed analysis off from index.html
+// to results.html on navigation -- sessionStorage (not localStorage) so it
+// doesn't linger past the tab closing, same privacy stance as everything
+// else in this app.
+const RESULT_HANDOFF_KEY = "skillmatch-result-handoff";
+
 async function runAnalysis() {
   const jobRole = document.getElementById("jobRole").value.trim();
   const jobDescription = document.getElementById("jobDescription").value.trim();
@@ -1690,7 +1696,8 @@ async function runAnalysis() {
       fitScore: analysis.score,
     });
 
-    renderResults({ jobRole, analysis, verdict, resumeText, ats });
+    sessionStorage.setItem(RESULT_HANDOFF_KEY, JSON.stringify({ jobRole, analysis, verdict, resumeText, ats }));
+    window.location.href = "results.html";
   } finally {
     setFormBusy(false);
   }
@@ -2066,28 +2073,49 @@ async function processResumeFile(file, myGeneration) {
   );
 }
 
-document.getElementById("resumeFile").addEventListener("change", (e) => {
-  const file = e.target.files[0];
-  handleResumeFile(file);
-  e.target.value = "";
-});
+// index.html has the form; results.html only has the results panel. Same
+// app.js is loaded on both (the analysis engine and PDF builders below are
+// shared), so each page's own init only runs when its elements exist.
+if (document.getElementById("jobRole")) {
+  document.getElementById("resumeFile").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    handleResumeFile(file);
+    e.target.value = "";
+  });
 
-document.getElementById("removeResumeBtn").addEventListener("click", () => {
-  discardInFlightUpload();
-  currentResumeText = "";
-  currentResumeFileExt = null;
-  currentResumeUsedOcr = false;
-  currentResumeFileName = "";
-  document.getElementById("resumeFile").value = "";
-  hideFileChip();
-  setUploadStatus("No resume uploaded yet.", "");
-  document.getElementById("formError").hidden = true;
-});
+  document.getElementById("removeResumeBtn").addEventListener("click", () => {
+    discardInFlightUpload();
+    currentResumeText = "";
+    currentResumeFileExt = null;
+    currentResumeUsedOcr = false;
+    currentResumeFileName = "";
+    document.getElementById("resumeFile").value = "";
+    hideFileChip();
+    setUploadStatus("No resume uploaded yet.", "");
+    document.getElementById("formError").hidden = true;
+  });
 
-document.getElementById("jobDescription").addEventListener("input", () => {
-  document.getElementById("formError").hidden = true;
-});
+  document.getElementById("jobDescription").addEventListener("input", () => {
+    document.getElementById("formError").hidden = true;
+  });
 
-document.getElementById("analyzeBtn").addEventListener("click", runAnalysis);
-document.getElementById("sampleBtn").addEventListener("click", loadSample);
-document.getElementById("clearBtn").addEventListener("click", clearForm);
+  document.getElementById("analyzeBtn").addEventListener("click", runAnalysis);
+  document.getElementById("sampleBtn").addEventListener("click", loadSample);
+  document.getElementById("clearBtn").addEventListener("click", clearForm);
+} else if (document.getElementById("resultsPanel")) {
+  // results.html: analysis was computed on index.html and handed off via
+  // sessionStorage (survives the navigation, cleared when the tab closes).
+  // No entry means someone opened this page directly -- send them to start
+  // an analysis instead of showing a blank panel.
+  let handoff = null;
+  try {
+    const raw = sessionStorage.getItem(RESULT_HANDOFF_KEY);
+    if (raw) handoff = JSON.parse(raw);
+  } catch (e) {}
+
+  if (handoff) {
+    renderResults(handoff);
+  } else {
+    window.location.href = "index.html";
+  }
+}

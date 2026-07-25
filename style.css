@@ -541,6 +541,16 @@ body {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 2px 12px rgba(0, 0, 0, 0.6);
 }
 
+.back-link {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
 .sitenav {
   display: flex;
   justify-content: center;
@@ -1153,6 +1163,8 @@ button:active,
 
 .results-panel {
   min-height: 300px;
+  width: 100%;
+  min-width: 0;
 }
 
 .empty-state {
@@ -1488,6 +1500,7 @@ button:disabled {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 16px;
   align-items: start;
+  min-width: 0;
 }
 
 .hardsoft-card {
