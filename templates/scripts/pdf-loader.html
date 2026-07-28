@@ -1,0 +1,9 @@
+  <script type="module">
+    import { getDocument, GlobalWorkerOptions } from "./pdf.min.mjs";
+    const workerResp = await fetch("./pdf.worker.min.mjs");
+    const workerText = await workerResp.text();
+    const blob = new Blob([workerText], { type: "text/javascript" });
+    GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
+    window.pdfjsLib = { getDocument };
+    window.dispatchEvent(new Event("pdfjs-ready"));
+  </script>

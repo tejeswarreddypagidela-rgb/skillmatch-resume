@@ -1,0 +1,32 @@
+      <div class="left-column">
+        <p class="panel-tagline">Get your resume analyzed by AI</p>
+        <section class="panel input-panel">
+        <label for="jobRole">Job Role</label>
+        <input id="jobRole" type="text" placeholder="e.g. Frontend Developer" />
+
+        <label for="jobDescription">Job Description</label>
+        <textarea id="jobDescription" placeholder="Paste the full job description here..."></textarea>
+
+        <label>Your Resume</label>
+        <div class="resume-upload-row">
+          <input id="resumeFile" type="file" class="visually-hidden-file" />
+          <label for="resumeFile" class="primary upload-btn">📎 Add File / Resume</label>
+          <span id="resumeFileChip" class="file-chip" hidden>
+            <span id="resumeFileName" class="file-chip-name"></span>
+            <button type="button" id="removeResumeBtn" class="file-chip-remove" aria-label="Remove resume file">✕</button>
+          </span>
+        </div>
+        <p id="uploadStatus" class="upload-status" aria-live="polite">No resume uploaded yet.</p>
+
+        <p id="formError" class="error-text" hidden></p>
+
+        <div class="actions">
+          <button id="analyzeBtn" type="button" class="primary">Submit</button>
+          <button id="sampleBtn" type="button" class="primary">Load Example</button>
+          <button id="clearBtn" type="button" class="primary">Clear</button>
+        </div>
+
+        <p class="privacy-note">🔒 Everything, including PDF parsing, runs locally in your browser. Your file is never uploaded anywhere.</p>
+        </section>
+      </div>
+

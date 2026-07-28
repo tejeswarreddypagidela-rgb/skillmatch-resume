@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "node scripts/build-pages.cjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },
