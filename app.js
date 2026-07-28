@@ -151,11 +151,27 @@ function findDbSkillsInText(text) {
   return found;
 }
 
+// Heading-style markers ("Nice to have:", "Preferred:", "Bonus points for")
+// introduce a preferred section, so everything from the marker to the end of
+// the JD is preferred -- a single split point works fine. "X is a plus"/"X
+// are a plus" phrasing is different: the skill name comes *before* the
+// marker, so a single split point would leave it in required and, worse,
+// would drag any later required content after it into preferred too. Pull
+// those sentences out wherever they occur first, then split whatever's left
+// on the first heading marker as before.
+const TRAILING_PLUS_RE = /[^.!?\n]*\b(?:is|are)\s+a\s+plus\b[^.!?\n]*[.!?]?/gi;
+const HEADING_MARKER_RE = /(preferred|nice[- ]to[- ]have|bonus points?|good to have|desirable)/i;
+
 function splitJdSections(jdText) {
-  const markerRe = /(preferred|nice[- ]to[- ]have|bonus points?|good to have|desirable|is a plus|are a plus)/i;
-  const match = markerRe.exec(jdText);
-  if (!match) return { required: jdText, preferred: "" };
-  return { required: jdText.slice(0, match.index), preferred: jdText.slice(match.index) };
+  const trailingPlusSentences = jdText.match(TRAILING_PLUS_RE) || [];
+  const withoutTrailingPlus = jdText.replace(TRAILING_PLUS_RE, "");
+
+  const match = HEADING_MARKER_RE.exec(withoutTrailingPlus);
+  const required = match ? withoutTrailingPlus.slice(0, match.index) : withoutTrailingPlus;
+  const headingPreferred = match ? withoutTrailingPlus.slice(match.index) : "";
+
+  const preferred = [trailingPlusSentences.join(" "), headingPreferred].filter(Boolean).join(" ");
+  return { required: required.trim(), preferred: preferred.trim() };
 }
 
 // --- Detecting requirement terms outside the curated skills dictionary -----

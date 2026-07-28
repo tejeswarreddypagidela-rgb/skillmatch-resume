@@ -1,2 +1,5 @@
 # Local Netlify folder
 .netlify
+
+# Node deps (test tooling only, not shipped to the site)
+node_modules

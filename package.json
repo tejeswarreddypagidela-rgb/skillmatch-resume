@@ -1,0 +1,13 @@
+{
+  "name": "skillmatch",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "jsdom": "^30.0.0",
+    "vitest": "^4.1.10"
+  }
+}

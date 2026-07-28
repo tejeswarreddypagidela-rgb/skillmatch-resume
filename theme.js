@@ -36,6 +36,9 @@ document.getElementById("themeToggle").addEventListener("click", (e) => {
 
   const transition = document.startViewTransition(() => applyTheme(next));
   transition.ready.then(() => {
+    // ready can reject (e.g. an overlapping transition, or the tab being
+    // backgrounded mid-animation) -- the theme itself is already applied
+    // synchronously above, so a failed reveal animation is just cosmetic.
     const clipAnimation = document.documentElement.animate(
       { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${endRadius}px at ${x}px ${y}px)`] },
       { duration: 550, easing: "ease-in-out", pseudoElement: "::view-transition-new(root)" }
@@ -50,5 +53,5 @@ document.getElementById("themeToggle").addEventListener("click", (e) => {
         void document.documentElement.offsetHeight;
       })
       .catch(() => {});
-  });
+  }).catch(() => {});
 });
